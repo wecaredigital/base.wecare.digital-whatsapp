@@ -1,0 +1,12 @@
+{
+    "action": "send_interactive",
+    "metaWabaId": "1390647332755815",
+    "to": "+447447840003",
+    "interactiveType": "button",
+    "bodyText": "WABA2 Test: Choose an option",
+    "buttons": [
+        {"id": "opt_yes", "title": "Yes"},
+        {"id": "opt_no", "title": "No"},
+        {"id": "opt_later", "title": "Later"}
+    ]
+}

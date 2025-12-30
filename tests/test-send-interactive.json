@@ -1,0 +1,14 @@
+{
+  "action": "send_interactive",
+  "metaWabaId": "1390647332755815",
+  "to": "+447447840003",
+  "interactiveType": "button",
+  "header": "Quick Survey",
+  "body": "How was your experience with us today?",
+  "footer": "Tap a button to respond",
+  "buttons": [
+    {"id": "great", "title": "Great! 👍"},
+    {"id": "okay", "title": "Okay 😐"},
+    {"id": "poor", "title": "Poor 👎"}
+  ]
+}

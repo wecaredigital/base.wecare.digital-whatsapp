@@ -1,0 +1,276 @@
+{
+  "tests": [
+    {
+      "name": "List Templates",
+      "event": {
+        "action": "eum_list_templates",
+        "wabaId": "waba-test-123",
+        "maxResults": 10
+      }
+    },
+    {
+      "name": "List Templates (Meta WABA ID)",
+      "event": {
+        "action": "eum_list_templates",
+        "metaWabaId": "1347766229904230"
+      }
+    },
+    {
+      "name": "Get Template",
+      "event": {
+        "action": "eum_get_template",
+        "wabaId": "waba-test-123",
+        "metaTemplateId": "123456789"
+      }
+    },
+    {
+      "name": "Create Template - Utility",
+      "event": {
+        "action": "eum_create_template",
+        "wabaId": "waba-test-123",
+        "name": "order_confirmation",
+        "language": "en_US",
+        "category": "UTILITY",
+        "components": [
+          {
+            "type": "HEADER",
+            "format": "TEXT",
+            "text": "Order Confirmation"
+          },
+          {
+            "type": "BODY",
+            "text": "Hi {{1}}, your order {{2}} has been confirmed. Expected delivery: {{3}}"
+          },
+          {
+            "type": "FOOTER",
+            "text": "Thank you for shopping with us!"
+          },
+          {
+            "type": "BUTTONS",
+            "buttons": [
+              {
+                "type": "URL",
+                "text": "Track Order",
+                "url": "https://example.com/track/{{1}}"
+              },
+              {
+                "type": "QUICK_REPLY",
+                "text": "Contact Support"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Create Template - Marketing",
+      "event": {
+        "action": "eum_create_template",
+        "wabaId": "waba-test-123",
+        "name": "holiday_sale",
+        "language": "en_US",
+        "category": "MARKETING",
+        "components": [
+          {
+            "type": "HEADER",
+            "format": "IMAGE"
+          },
+          {
+            "type": "BODY",
+            "text": "🎉 Holiday Sale! Get {{1}}% off on all items. Use code: {{2}}"
+          },
+          {
+            "type": "FOOTER",
+            "text": "Valid until {{3}}"
+          },
+          {
+            "type": "BUTTONS",
+            "buttons": [
+              {
+                "type": "URL",
+                "text": "Shop Now",
+                "url": "https://example.com/sale"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Create Template - Authentication",
+      "event": {
+        "action": "eum_create_template",
+        "wabaId": "waba-test-123",
+        "name": "otp_verification",
+        "language": "en_US",
+        "category": "AUTHENTICATION",
+        "components": [
+          {
+            "type": "BODY",
+            "text": "Your verification code is {{1}}. Valid for 10 minutes."
+          },
+          {
+            "type": "BUTTONS",
+            "buttons": [
+              {
+                "type": "COPY_CODE",
+                "text": "Copy Code"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Update Template",
+      "event": {
+        "action": "eum_update_template",
+        "wabaId": "waba-test-123",
+        "metaTemplateId": "123456789",
+        "components": [
+          {
+            "type": "BODY",
+            "text": "Updated: Hi {{1}}, your order {{2}} is confirmed!"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Delete Template (Specific Language)",
+      "event": {
+        "action": "eum_delete_template",
+        "wabaId": "waba-test-123",
+        "templateName": "order_confirmation",
+        "metaTemplateId": "123456789"
+      }
+    },
+    {
+      "name": "Delete Template (All Languages)",
+      "event": {
+        "action": "eum_delete_template",
+        "wabaId": "waba-test-123",
+        "templateName": "old_template",
+        "deleteAllLanguages": true
+      }
+    },
+    {
+      "name": "List Template Library",
+      "event": {
+        "action": "eum_list_template_library",
+        "wabaId": "waba-test-123",
+        "filters": {
+          "searchKey": "order",
+          "language": "en_US"
+        },
+        "maxResults": 20
+      }
+    },
+    {
+      "name": "List Template Library - By Industry",
+      "event": {
+        "action": "eum_list_template_library",
+        "wabaId": "waba-test-123",
+        "filters": {
+          "industry": "retail",
+          "topic": "shipping"
+        }
+      }
+    },
+    {
+      "name": "Create From Library",
+      "event": {
+        "action": "eum_create_from_library",
+        "wabaId": "waba-test-123",
+        "libraryTemplateId": "lib_order_status_001",
+        "name": "my_order_status",
+        "language": "en_US",
+        "bodyVariables": ["{{1}}", "{{2}}"]
+      }
+    },
+    {
+      "name": "Create Template Media",
+      "event": {
+        "action": "eum_create_template_media",
+        "wabaId": "waba-test-123",
+        "s3Key": "WhatsApp/templates/header_image.jpg"
+      }
+    },
+    {
+      "name": "Sync Templates",
+      "event": {
+        "action": "eum_sync_templates",
+        "wabaId": "waba-test-123"
+      }
+    },
+    {
+      "name": "Get Template Status",
+      "event": {
+        "action": "eum_get_template_status",
+        "wabaId": "waba-test-123",
+        "templateName": "order_confirmation",
+        "language": "en_US"
+      }
+    }
+  ],
+  "validation_tests": [
+    {
+      "name": "Missing WABA ID",
+      "event": {
+        "action": "eum_list_templates"
+      },
+      "expected_error": "wabaId or metaWabaId is required"
+    },
+    {
+      "name": "Missing Template Name",
+      "event": {
+        "action": "eum_create_template",
+        "wabaId": "waba-test-123",
+        "components": [{"type": "BODY", "text": "Test"}]
+      },
+      "expected_error": "Missing required fields: name"
+    },
+    {
+      "name": "Invalid Category",
+      "event": {
+        "action": "eum_create_template",
+        "wabaId": "waba-test-123",
+        "name": "test",
+        "category": "INVALID",
+        "components": [{"type": "BODY", "text": "Test"}]
+      },
+      "expected_error": "Invalid category"
+    },
+    {
+      "name": "Missing Body Component",
+      "event": {
+        "action": "eum_create_template",
+        "wabaId": "waba-test-123",
+        "name": "test",
+        "components": [{"type": "HEADER", "format": "TEXT", "text": "Header"}]
+      },
+      "expected_error": "Template must have a BODY component"
+    },
+    {
+      "name": "Invalid Button Type",
+      "event": {
+        "action": "eum_create_template",
+        "wabaId": "waba-test-123",
+        "name": "test",
+        "components": [
+          {"type": "BODY", "text": "Test"},
+          {"type": "BUTTONS", "buttons": [{"type": "INVALID", "text": "Click"}]}
+        ]
+      },
+      "expected_error": "Invalid button type"
+    },
+    {
+      "name": "Invalid Library Filter",
+      "event": {
+        "action": "eum_list_template_library",
+        "wabaId": "waba-test-123",
+        "filters": {"invalid_key": "value"}
+      },
+      "expected_error": "Invalid filter keys"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+    "action": "send_payment_order",
+    "metaWabaId": "1347766229904230",
+    "to": "+919903300044",
+    "referenceId": "WC-ORD-002",
+    "paymentType": "UPI_INTENT",
+    "upiIntentLink": "upi://pay?pa=9330994400@sbi&pn=WECARE.DIGITAL&am=100&cu=INR&tr=WC-ORD-002",
+    "currency": "INR",
+    "totalAmount": 100,
+    "expirationSeconds": 300,
+    "order": {
+        "status": "pending",
+        "items": [
+            {
+                "name": "Test Item - UPI",
+                "amount": 100,
+                "quantity": 1,
+                "retailerId": "TEST-SKU-002"
+            }
+        ]
+    }
+}

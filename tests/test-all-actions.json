@@ -1,0 +1,100 @@
+{
+  "_comment": "Test events for all Lambda actions - use one at a time",
+  
+  "test_ping": {
+    "action": "ping"
+  },
+  
+  "test_help": {
+    "action": "help"
+  },
+  
+  "test_list_actions": {
+    "action": "list_actions"
+  },
+  
+  "test_get_supported_formats": {
+    "action": "get_supported_formats"
+  },
+  
+  "test_get_supported_formats_image": {
+    "action": "get_supported_formats",
+    "category": "image"
+  },
+  
+  "test_validate_media_jpeg": {
+    "action": "validate_media",
+    "mimeType": "image/jpeg",
+    "fileSizeBytes": 1048576
+  },
+  
+  "test_validate_media_too_large": {
+    "action": "validate_media",
+    "mimeType": "image/jpeg",
+    "fileSizeBytes": 10485760
+  },
+  
+  "test_validate_media_unsupported": {
+    "action": "validate_media",
+    "mimeType": "application/zip",
+    "fileSizeBytes": 1048576
+  },
+  
+  "test_get_stats": {
+    "action": "get_stats"
+  },
+  
+  "test_get_wabas": {
+    "action": "get_wabas"
+  },
+  
+  "test_get_phone_info": {
+    "action": "get_phone_info"
+  },
+  
+  "test_get_quality": {
+    "action": "get_quality"
+  },
+  
+  "test_get_infra": {
+    "action": "get_infra"
+  },
+  
+  "test_get_media_types": {
+    "action": "get_media_types"
+  },
+  
+  "test_get_config": {
+    "action": "get_config"
+  },
+  
+  "test_get_messages": {
+    "action": "get_messages",
+    "limit": 10
+  },
+  
+  "test_get_conversations": {
+    "action": "get_conversations",
+    "limit": 10
+  },
+  
+  "test_get_unread_count": {
+    "action": "get_unread_count"
+  },
+  
+  "test_get_failed_messages": {
+    "action": "get_failed_messages",
+    "limit": 10
+  },
+  
+  "test_get_archived_conversations": {
+    "action": "get_archived_conversations",
+    "limit": 10
+  },
+  
+  "test_search_messages": {
+    "action": "search_messages",
+    "query": "hello",
+    "limit": 10
+  }
+}

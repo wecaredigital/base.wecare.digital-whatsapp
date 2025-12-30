@@ -1,0 +1,16 @@
+{
+  "action": "send_interactive",
+  "metaWabaId": "1347766229904230",
+  "to": "+447447840003",
+  "interactiveType": "list",
+  "body": "Please select from the menu:",
+  "buttonText": "View Options",
+  "sections": [{
+    "title": "Services",
+    "rows": [
+      {"id": "svc1", "title": "Support", "description": "Get help with your account"},
+      {"id": "svc2", "title": "Sales", "description": "Talk to our sales team"},
+      {"id": "svc3", "title": "Billing", "description": "Payment and invoice queries"}
+    ]
+  }]
+}

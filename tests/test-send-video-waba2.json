@@ -1,0 +1,7 @@
+{
+  "action": "send_video",
+  "metaWabaId": "1390647332755815",
+  "to": "+919330994400",
+  "s3Key": "WhatsApp/test/test-video.mp4",
+  "caption": "Test video from Manish Agarwal Lambda"
+}

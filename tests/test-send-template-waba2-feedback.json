@@ -1,0 +1,26 @@
+{
+  "action": "send_template",
+  "metaWabaId": "1390647332755815",
+  "to": "+919330994400",
+  "templateName": "sample_purchase_feedback",
+  "languageCode": "en_US",
+  "components": [
+    {
+      "type": "header",
+      "parameters": [
+        {
+          "type": "image",
+          "image": {
+            "link": "https://dev.wecare.digital.s3.ap-south-1.amazonaws.com/WhatsApp/test/test-image.jpg"
+          }
+        }
+      ]
+    },
+    {
+      "type": "body",
+      "parameters": [
+        {"type": "text", "text": "your recent order"}
+      ]
+    }
+  ]
+}

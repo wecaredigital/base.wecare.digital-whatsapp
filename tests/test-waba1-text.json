@@ -1,0 +1,6 @@
+{
+  "action": "send_text",
+  "metaWabaId": "1390647332755815",
+  "to": "+447447840003",
+  "text": "Test WABA1 text message via Lambda"
+}

@@ -1,0 +1,138 @@
+name: Deploy WhatsApp API
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'app.py'
+      - 'handlers/**'
+      - 'requirements.txt'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  AWS_REGION: ap-south-1
+  FUNCTION_NAME: base-wecare-digital-whatsapp
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest boto3 moto
+          pip install -r requirements.txt
+      
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/test_all_handlers.py -v --tb=short
+        env:
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: testing
+          AWS_SECRET_ACCESS_KEY: testing
+
+  deploy:
+    name: Deploy to AWS
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Create deployment package
+        run: |
+          mkdir -p package
+          cp app.py package/
+          cp -r handlers package/
+          if [ -d "src" ]; then cp -r src package/; fi
+          cd package
+          zip -r ../deployment.zip .
+          cd ..
+          echo "Package size: $(du -h deployment.zip | cut -f1)"
+      
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --zip-file fileb://deployment.zip
+          
+          echo "Waiting for update to complete..."
+          aws lambda wait function-updated \
+            --function-name ${{ env.FUNCTION_NAME }}
+      
+      - name: Publish new version
+        id: publish
+        run: |
+          VERSION=$(aws lambda publish-version \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --description "Deploy from GitHub Actions - ${{ github.sha }}" \
+            --query 'Version' \
+            --output text)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Published version: $VERSION"
+      
+      - name: Update alias
+        run: |
+          aws lambda update-alias \
+            --function-name ${{ env.FUNCTION_NAME }} \
+            --name live \
+            --function-version ${{ steps.publish.outputs.version }}
+          echo "Alias 'live' updated to version ${{ steps.publish.outputs.version }}"
+      
+      - name: Smoke test
+        run: |
+          RESPONSE=$(aws lambda invoke \
+            --function-name ${{ env.FUNCTION_NAME }}:live \
+            --payload '{"action": "ping"}' \
+            --cli-binary-format raw-in-base64-out \
+            response.json)
+          
+          echo "Lambda response:"
+          cat response.json
+          
+          if grep -q '"statusCode": 200' response.json; then
+            echo "✅ Smoke test passed"
+          else
+            echo "❌ Smoke test failed"
+            exit 1
+          fi
+      
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Function**: ${{ env.FUNCTION_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Alias**: live" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY

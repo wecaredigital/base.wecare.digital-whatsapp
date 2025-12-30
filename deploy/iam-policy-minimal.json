@@ -1,0 +1,87 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DynamoDB",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:GetItem",
+        "dynamodb:Query",
+        "dynamodb:Scan"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-south-1:010526260063:table/base-wecare-digital-whatsapp",
+        "arn:aws:dynamodb:ap-south-1:010526260063:table/base-wecare-digital-whatsapp/index/*"
+      ]
+    },
+    {
+      "Sid": "S3MediaAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::dev.wecare.digital/WhatsApp/*"
+    },
+    {
+      "Sid": "SocialMessagingPhones",
+      "Effect": "Allow",
+      "Action": [
+        "social-messaging:GetWhatsAppMessageMedia",
+        "social-messaging:SendWhatsAppMessage",
+        "social-messaging:PostWhatsAppMessageMedia",
+        "social-messaging:DeleteWhatsAppMessageMedia",
+        "social-messaging:CreateWhatsAppMessageTemplateMedia"
+      ],
+      "Resource": [
+        "arn:aws:social-messaging:ap-south-1:010526260063:phone-number-id/3f8934395ae24a4583a413087a3d3fb0",
+        "arn:aws:social-messaging:ap-south-1:010526260063:phone-number-id/0b0d77d6d54645d991db7aa9cf1b0eb2"
+      ]
+    },
+    {
+      "Sid": "SocialMessagingWABA",
+      "Effect": "Allow",
+      "Action": [
+        "social-messaging:ListLinkedWhatsAppBusinessAccounts",
+        "social-messaging:GetLinkedWhatsAppBusinessAccount",
+        "social-messaging:ListWhatsAppMessageTemplates",
+        "social-messaging:CreateWhatsAppMessageTemplate",
+        "social-messaging:DeleteWhatsAppMessageTemplate"
+      ],
+      "Resource": [
+        "arn:aws:social-messaging:ap-south-1:010526260063:waba/*",
+        "*"
+      ]
+    },
+    {
+      "Sid": "SNSPublish",
+      "Effect": "Allow",
+      "Action": "sns:Publish",
+      "Resource": "arn:aws:sns:ap-south-1:010526260063:base-wecare-digital"
+    },
+    {
+      "Sid": "EC2DescribeVpcEndpoints",
+      "Effect": "Allow",
+      "Action": "ec2:DescribeVpcEndpoints",
+      "Resource": "*"
+    },
+    {
+      "Sid": "IAMGetServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": "iam:GetRole",
+      "Resource": "arn:aws:iam::010526260063:role/aws-service-role/social-messaging.amazonaws.com/*"
+    }
+  ]
+}

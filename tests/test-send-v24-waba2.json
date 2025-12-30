@@ -1,0 +1,6 @@
+{
+  "action": "send_text",
+  "phone_number_id": "phone-number-id-0b0d77d6d54645d991db7aa9cf1b0eb2",
+  "to": "+447447840003",
+  "text": "Test from WABA2 (Manish Agarwal) - Lambda v24 with all 37 handlers"
+}

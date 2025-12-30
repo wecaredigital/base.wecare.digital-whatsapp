@@ -1,0 +1,89 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'app.py'
+      - 'handlers/**'
+      - 'tests/**'
+      - 'requirements.txt'
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install linters
+        run: pip install flake8 black isort
+      
+      - name: Check formatting with Black
+        run: black --check --diff app.py handlers/
+      
+      - name: Check imports with isort
+        run: isort --check-only --diff app.py handlers/
+      
+      - name: Lint with flake8
+        run: flake8 app.py handlers/ --max-line-length=120 --ignore=E501,W503
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest boto3 moto
+          pip install -r requirements.txt
+      
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+        env:
+          AWS_DEFAULT_REGION: ap-south-1
+          AWS_ACCESS_KEY_ID: testing
+          AWS_SECRET_ACCESS_KEY: testing
+
+  handler-count:
+    name: Verify Handler Count
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install boto3
+      
+      - name: Count handlers
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from handlers.extended import EXTENDED_HANDLERS
+          count = len(EXTENDED_HANDLERS)
+          print(f'Handler count: {count}')
+          if count < 160:
+            print(f'ERROR: Expected 160+ handlers, got {count}')
+            sys.exit(1)
+          print('✅ Handler count OK')
+          "

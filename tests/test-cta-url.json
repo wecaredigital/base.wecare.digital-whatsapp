@@ -1,0 +1,10 @@
+{
+  "action": "send_cta_url",
+  "metaWabaId": "1347766229904230",
+  "to": "+447447840003",
+  "body": "Visit our website for more information",
+  "buttonText": "Visit Website",
+  "url": "https://wecare.digital",
+  "header": "WECARE.DIGITAL",
+  "footer": "Click to learn more"
+}

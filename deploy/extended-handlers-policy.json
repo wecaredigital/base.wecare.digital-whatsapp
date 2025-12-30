@@ -1,0 +1,54 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EventBridgeForWebhooks",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutEvents",
+        "events:PutRule",
+        "events:PutTargets",
+        "events:DeleteRule",
+        "events:RemoveTargets",
+        "events:DescribeRule",
+        "events:ListRules"
+      ],
+      "Resource": [
+        "arn:aws:events:ap-south-1:010526260063:event-bus/default",
+        "arn:aws:events:ap-south-1:010526260063:rule/whatsapp-*"
+      ]
+    },
+    {
+      "Sid": "StepFunctionsForCampaigns",
+      "Effect": "Allow",
+      "Action": [
+        "states:StartExecution",
+        "states:DescribeExecution",
+        "states:StopExecution",
+        "states:ListExecutions",
+        "states:GetExecutionHistory"
+      ],
+      "Resource": "arn:aws:states:ap-south-1:010526260063:stateMachine:whatsapp-*"
+    },
+    {
+      "Sid": "SQSForRateLimiting",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+      ],
+      "Resource": "arn:aws:sqs:ap-south-1:010526260063:whatsapp-*"
+    },
+    {
+      "Sid": "SecretsManagerForPaymentConfig",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:ap-south-1:010526260063:secret:whatsapp/*"
+    }
+  ]
+}

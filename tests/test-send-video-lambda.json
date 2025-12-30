@@ -1,0 +1,7 @@
+{
+    "action": "send_video",
+    "metaWabaId": "1347766229904230",
+    "to": "+447447840003",
+    "s3Key": "WhatsApp/test-video.mp4",
+    "caption": "Test video via Lambda - WECARE"
+}

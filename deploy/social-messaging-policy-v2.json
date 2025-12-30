@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SocialMessagingFullAccess",
+      "Effect": "Allow",
+      "Action": [
+        "social-messaging:SendWhatsAppMessage",
+        "social-messaging:GetWhatsAppMessageMedia",
+        "social-messaging:PostWhatsAppMessageMedia",
+        "social-messaging:DeleteWhatsAppMessageMedia",
+        "social-messaging:GetLinkedWhatsAppBusinessAccount",
+        "social-messaging:GetLinkedWhatsAppBusinessAccountPhoneNumber",
+        "social-messaging:ListLinkedWhatsAppBusinessAccounts",
+        "social-messaging:ListLinkedWhatsAppBusinessAccountPhoneNumbers",
+        "social-messaging:AssociateWhatsAppBusinessAccount",
+        "social-messaging:DisassociateWhatsAppBusinessAccount",
+        "social-messaging:TagResource",
+        "social-messaging:UntagResource",
+        "social-messaging:ListTagsForResource",
+        "social-messaging:PutWhatsAppBusinessAccountEventDestinations",
+        "social-messaging:GetWhatsAppBusinessAccountEventDestinations",
+        "social-messaging:DeleteWhatsAppBusinessAccountEventDestinations",
+        "social-messaging:ListWhatsAppMessageTemplates",
+        "social-messaging:GetWhatsAppMessageTemplate"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+    "action": "send_text",
+    "metaWabaId": "1347766229904230",
+    "to": "+919903300044",
+    "text": "Test message from CLI - checking delivery"
+}

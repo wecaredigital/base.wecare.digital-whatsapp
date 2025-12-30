@@ -1,0 +1,9 @@
+{
+    "action": "send_media",
+    "metaWabaId": "1390647332755815",
+    "to": "+447447840003",
+    "mediaType": "document",
+    "s3Key": "WhatsApp/test-document.txt",
+    "filename": "test-document.txt",
+    "caption": "WABA2 Test: Document from S3"
+}

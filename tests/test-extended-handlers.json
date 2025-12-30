@@ -1,0 +1,190 @@
+{
+  "_description": "Test events for extended handlers. Copy individual events to test in Lambda console.",
+  
+  "business_profile": {
+    "get_business_profile": {
+      "action": "get_business_profile",
+      "metaWabaId": "1347766229904230"
+    },
+    "update_business_profile": {
+      "action": "update_business_profile",
+      "metaWabaId": "1347766229904230",
+      "data": {
+        "about": "My Business sells products",
+        "address": "123 Business St",
+        "description": "We sell quality products",
+        "email": "contact@business.com",
+        "websites": ["https://www.business.com"],
+        "vertical": "RETAIL"
+      }
+    }
+  },
+  
+  "marketing": {
+    "create_marketing_template": {
+      "action": "create_marketing_template",
+      "metaWabaId": "1347766229904230",
+      "templateName": "summer_sale",
+      "language": "en_US",
+      "category": "MARKETING",
+      "templateType": "custom",
+      "components": [
+        {"type": "HEADER", "format": "IMAGE"},
+        {"type": "BODY", "text": "Summer sale! Get {{1}}% off on all items. Use code: {{2}}"},
+        {"type": "FOOTER", "text": "Valid until {{3}}"}
+      ]
+    },
+    "send_marketing_message": {
+      "action": "send_marketing_message",
+      "metaWabaId": "1347766229904230",
+      "to": "+919876543210",
+      "templateName": "summer_sale",
+      "languageCode": "en_US",
+      "bodyParams": ["50", "SUMMER50", "Aug 31"]
+    }
+  },
+  
+  "webhooks": {
+    "register_webhook": {
+      "action": "register_webhook",
+      "metaWabaId": "1347766229904230",
+      "webhookUrl": "https://api.example.com/webhook",
+      "verifyToken": "my_verify_token",
+      "subscribedEvents": ["messages", "statuses", "account_update"]
+    },
+    "process_wix_webhook": {
+      "action": "process_wix_webhook",
+      "metaWabaId": "1347766229904230",
+      "wixEvent": {
+        "eventType": "order_created",
+        "orderId": "WIX-ORD-12345",
+        "customerPhone": "+919876543210",
+        "customerName": "John Doe",
+        "orderTotal": "₹2,500"
+      },
+      "templateName": "order_confirmation"
+    }
+  },
+  
+  "calling": {
+    "initiate_call": {
+      "action": "initiate_call",
+      "metaWabaId": "1347766229904230",
+      "to": "+919876543210",
+      "callType": "business_initiated",
+      "agentId": "agent_001",
+      "callReason": "Order follow-up"
+    },
+    "get_call_logs": {
+      "action": "get_call_logs",
+      "metaWabaId": "1347766229904230",
+      "limit": 50
+    }
+  },
+  
+  "groups": {
+    "create_group": {
+      "action": "create_group",
+      "metaWabaId": "1347766229904230",
+      "groupName": "Customer Support",
+      "groupDescription": "Support group for customers",
+      "participants": ["+919876543210", "+919876543211"]
+    },
+    "get_groups": {
+      "action": "get_groups",
+      "metaWabaId": "1347766229904230",
+      "limit": 50
+    }
+  },
+  
+  "analytics": {
+    "get_analytics": {
+      "action": "get_analytics",
+      "metaWabaId": "1347766229904230",
+      "startDate": "2024-12-01",
+      "endDate": "2024-12-30",
+      "granularity": "daily"
+    },
+    "get_funnel_insights": {
+      "action": "get_funnel_insights",
+      "metaWabaId": "1347766229904230",
+      "templateName": "order_confirmation"
+    }
+  },
+  
+  "catalogs": {
+    "upload_catalog": {
+      "action": "upload_catalog",
+      "metaWabaId": "1347766229904230",
+      "catalogName": "Main Catalog",
+      "products": [
+        {
+          "retailerId": "SKU001",
+          "name": "Product A",
+          "description": "Description of Product A",
+          "price": 999,
+          "currency": "INR",
+          "imageUrl": "https://example.com/product-a.jpg",
+          "category": "Electronics",
+          "availability": "in_stock"
+        }
+      ]
+    },
+    "get_catalog_products": {
+      "action": "get_catalog_products",
+      "catalogId": "CATALOG_20241230120000",
+      "limit": 50
+    }
+  },
+  
+  "payments": {
+    "payment_onboarding": {
+      "action": "payment_onboarding",
+      "metaWabaId": "1347766229904230",
+      "provider": "razorpay",
+      "credentials": {
+        "keyId": "rzp_test_xxx",
+        "keySecret": "encrypted_secret"
+      },
+      "webhookUrl": "https://api.example.com/payment-webhook"
+    },
+    "create_payment_request": {
+      "action": "create_payment_request",
+      "metaWabaId": "1347766229904230",
+      "to": "+919876543210",
+      "orderId": "ORD-12345",
+      "amount": 2500,
+      "currency": "INR",
+      "description": "Order payment",
+      "provider": "razorpay"
+    },
+    "get_payments": {
+      "action": "get_payments",
+      "metaWabaId": "1347766229904230",
+      "status": "completed",
+      "limit": 50
+    }
+  },
+  
+  "media_eum": {
+    "eum_download_media": {
+      "action": "eum_download_media",
+      "metaWabaId": "1347766229904230",
+      "mediaId": "123456789",
+      "s3Key": "WhatsApp/downloads/media.jpg"
+    },
+    "eum_upload_media": {
+      "action": "eum_upload_media",
+      "metaWabaId": "1347766229904230",
+      "s3Key": "WhatsApp/uploads/image.jpg"
+    },
+    "eum_validate_media": {
+      "action": "eum_validate_media",
+      "mimeType": "image/jpeg",
+      "fileSizeBytes": 1048576
+    },
+    "eum_get_supported_formats": {
+      "action": "eum_get_supported_formats"
+    }
+  }
+}

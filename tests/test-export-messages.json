@@ -1,0 +1,5 @@
+{
+  "action": "export_messages",
+  "conversationPk": "CONV#3f8934395ae24a4583a413087a3d3fb0#447447840003",
+  "s3Key": "WhatsApp/exports/conversation_export.json"
+}

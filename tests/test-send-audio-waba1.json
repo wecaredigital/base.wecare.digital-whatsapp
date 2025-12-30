@@ -1,0 +1,6 @@
+{
+  "action": "send_audio",
+  "metaWabaId": "1347766229904230",
+  "to": "+919903300044",
+  "s3Key": "WhatsApp/test/test-audio.mp3"
+}

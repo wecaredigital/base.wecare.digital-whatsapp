@@ -1,0 +1,8 @@
+{
+    "action": "send_media",
+    "metaWabaId": "1390647332755815",
+    "to": "+447447840003",
+    "mediaType": "image",
+    "s3Key": "WhatsApp/test-image.jpg",
+    "caption": "WABA2 Test: Image from S3"
+}

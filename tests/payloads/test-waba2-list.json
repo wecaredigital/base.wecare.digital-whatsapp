@@ -1,0 +1,17 @@
+{
+    "action": "send_interactive",
+    "metaWabaId": "1390647332755815",
+    "to": "+447447840003",
+    "interactiveType": "list",
+    "headerText": "WABA2 Menu",
+    "bodyText": "Select an option from the list below",
+    "footerText": "Powered by Manish Agarwal WABA",
+    "buttonText": "View Menu",
+    "sections": [{
+        "title": "Services",
+        "rows": [
+            {"id": "svc_1", "title": "Service 1", "description": "First service option"},
+            {"id": "svc_2", "title": "Service 2", "description": "Second service option"}
+        ]
+    }]
+}

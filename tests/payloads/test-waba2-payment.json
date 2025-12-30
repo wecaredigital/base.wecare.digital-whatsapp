@@ -1,0 +1,10 @@
+{
+    "action": "create_payment_request",
+    "metaWabaId": "1390647332755815",
+    "to": "+447447840003",
+    "orderId": "ORD-2024-001",
+    "amount": 2500,
+    "currency": "INR",
+    "description": "Order payment for electronics",
+    "provider": "razorpay"
+}

@@ -1,0 +1,6 @@
+{
+  "action": "send_text",
+  "phone_number_id": "phone-number-id-3f8934395ae24a4583a413087a3d3fb0",
+  "to": "+447447840003",
+  "text": "Test from WABA1 (WECARE.DIGITAL) - Lambda v24 with all 37 handlers"
+}

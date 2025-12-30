@@ -1,0 +1,7 @@
+{
+  "action": "send_reply",
+  "metaWabaId": "1347766229904230",
+  "to": "+447447840003",
+  "replyToMessageId": "wamid.HBgMNDQ3NDQ3ODQwMDAzFQIAEhggQUM2OURCREZFMTFBQzFBNzg3OTlFMzhDRjRFNTRCMTIA",
+  "text": "This is a reply to your message - testing Lambda v22!"
+}

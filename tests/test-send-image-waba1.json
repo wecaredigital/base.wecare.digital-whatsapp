@@ -1,0 +1,7 @@
+{
+  "action": "send_image",
+  "metaWabaId": "1347766229904230",
+  "to": "+919903300044",
+  "s3Key": "WhatsApp/test/test-image.jpg",
+  "caption": "Test image from WECARE.DIGITAL Lambda"
+}

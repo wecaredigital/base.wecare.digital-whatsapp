@@ -1,0 +1,7 @@
+{
+  "action": "send_template",
+  "metaWabaId": "1390647332755815",
+  "to": "+919330994400",
+  "templateName": "sample_happy_hour_announcement",
+  "languageCode": "en_US"
+}

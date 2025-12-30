@@ -1,0 +1,11 @@
+{
+  "action": "send_interactive",
+  "metaWabaId": "1347766229904230",
+  "to": "+447447840003",
+  "interactiveType": "button",
+  "body": "Please select an option:",
+  "buttons": [
+    {"id": "btn1", "title": "Option 1"},
+    {"id": "btn2", "title": "Option 2"}
+  ]
+}

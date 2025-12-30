@@ -1,0 +1,20 @@
+{
+  "Variables": {
+    "MESSAGES_TABLE_NAME": "base-wecare-digital-whatsapp",
+    "MESSAGES_PK_NAME": "base-wecare-digital-whatsapp",
+    "MEDIA_BUCKET": "dev.wecare.digital",
+    "MEDIA_PREFIX": "WhatsApp/",
+    "META_API_VERSION": "v20.0",
+    "AUTO_REPLY_ENABLED": "true",
+    "AUTO_REPLY_TEXT": "Thanks! We received your message. This is an auto-reply from WECARE.DIGITAL",
+    "ECHO_MEDIA_BACK": "true",
+    "MARK_AS_READ_ENABLED": "true",
+    "REACT_EMOJI_ENABLED": "true",
+    "FORWARD_ENABLED": "false",
+    "FORWARD_TO_WA_ID": "",
+    "FORWARD_DELETE_UPLOADED_MEDIA": "false",
+    "EMAIL_NOTIFICATION_ENABLED": "true",
+    "EMAIL_SNS_TOPIC_ARN": "arn:aws:sns:ap-south-1:010526260063:base-wecare-digital",
+    "WABA_PHONE_MAP_JSON": "{\"1347766229904230\":{\"businessAccountName\":\"WECARE.DIGITAL\",\"phoneArn\":\"arn:aws:social-messaging:ap-south-1:010526260063:phone-number-id/3f8934395ae24a4583a413087a3d3fb0\",\"phone\":\"+919330994400\",\"meta_phone_number_id\":\"831049713436137\",\"payment\":{\"razorpay\":{\"configName\":\"WECARE-DIGITAL\",\"status\":\"active\",\"mcc\":\"4722\",\"purposeCode\":\"03\",\"gatewayMID\":\"acc_HDfub6wOfQybuH\"},\"upi\":{\"configName\":\"wecare-digital-upi\",\"status\":\"active\",\"mcc\":\"4722\",\"purposeCode\":\"03\",\"upiId\":\"9330994400@sbi\"}}},\"1390647332755815\":{\"businessAccountName\":\"Manish Agarwal\",\"phoneArn\":\"arn:aws:social-messaging:ap-south-1:010526260063:phone-number-id/0b0d77d6d54645d991db7aa9cf1b0eb2\",\"phone\":\"+919903300044\",\"meta_phone_number_id\":\"888782840987368\",\"payment\":{\"razorpay\":{\"configName\":\"ManishAgarwal\",\"status\":\"active\",\"mcc\":\"4722\",\"purposeCode\":\"03\",\"gatewayMID\":\"acc_HDfub6wOfQybuH\"},\"upi\":{\"configName\":\"manish-agarwal-upi\",\"status\":\"active\",\"mcc\":\"4722\",\"purposeCode\":\"03\",\"upiId\":\"9330994400@sbi\"}}}}"
+  }
+}

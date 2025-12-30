@@ -1,0 +1,4 @@
+{
+  "source": ["whatsapp.webhook"],
+  "detail-type": ["message.received", "message.sent", "message.delivered", "message.read"]
+}

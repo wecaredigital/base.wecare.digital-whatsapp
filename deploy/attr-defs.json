@@ -1,0 +1,4 @@
+[
+    {"AttributeName": "deliveryStatus", "AttributeType": "S"},
+    {"AttributeName": "sentAt", "AttributeType": "S"}
+]
