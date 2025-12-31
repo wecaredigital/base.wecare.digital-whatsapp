@@ -2,6 +2,8 @@
 
 Production-ready WhatsApp Business API built on AWS End User Messaging (EUM) Social.
 
+![Deploy](https://github.com/wecaredigital/base.wecare.digital-whatsapp/actions/workflows/deploy.yml/badge.svg)
+
 ## Features
 
 - **167 Handlers** - Complete WhatsApp Business API coverage
