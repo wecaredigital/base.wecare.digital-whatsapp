@@ -25,6 +25,190 @@ FLOW_ACTION_TYPES = ["navigate", "data_exchange"]
 FLOW_MODES = ["draft", "published"]
 
 
+def handle_create_flow(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Store a WhatsApp Flow definition in DynamoDB.
+    
+    Use this to store Flow IDs created in Meta Business Suite for later use.
+    
+    Test Event:
+    {
+        "action": "create_flow",
+        "metaWabaId": "1347766229904230",
+        "flowId": "1234567890",
+        "flowName": "Appointment Booking",
+        "flowDescription": "Book appointments with customers",
+        "flowStatus": "PUBLISHED",
+        "flowJson": {}
+    }
+    """
+    meta_waba_id = event.get("metaWabaId", "")
+    flow_id = event.get("flowId", "")
+    flow_name = event.get("flowName", "")
+    flow_description = event.get("flowDescription", "")
+    flow_status = event.get("flowStatus", "DRAFT")
+    flow_json = event.get("flowJson", {})
+    
+    error = validate_required_fields(event, ["metaWabaId", "flowId", "flowName"])
+    if error:
+        return error
+    
+    now = iso_now()
+    flow_pk = f"FLOW#{meta_waba_id}#{flow_id}"
+    
+    try:
+        store_item({
+            MESSAGES_PK_NAME: flow_pk,
+            "itemType": "FLOW",
+            "wabaMetaId": meta_waba_id,
+            "flowId": flow_id,
+            "flowName": flow_name,
+            "flowDescription": flow_description,
+            "status": flow_status,
+            "flowJson": flow_json,
+            "createdAt": now,
+            "lastUpdatedAt": now,
+            "messagesSent": 0,
+            "completions": 0,
+        })
+        
+        return {
+            "statusCode": 200,
+            "operation": "create_flow",
+            "flowPk": flow_pk,
+            "flowId": flow_id,
+            "flowName": flow_name,
+            "status": flow_status,
+            "message": "Flow stored successfully. Use send_flow_message to trigger."
+        }
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_get_flows(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Get all stored Flows for a WABA.
+    
+    Test Event:
+    {
+        "action": "get_flows",
+        "metaWabaId": "1347766229904230",
+        "status": "PUBLISHED"
+    }
+    """
+    meta_waba_id = event.get("metaWabaId", "")
+    status = event.get("status", "")
+    limit = event.get("limit", 50)
+    
+    error = validate_required_fields(event, ["metaWabaId"])
+    if error:
+        return error
+    
+    try:
+        filter_expr = "itemType = :it AND wabaMetaId = :waba"
+        expr_values = {":it": "FLOW", ":waba": meta_waba_id}
+        
+        if status:
+            filter_expr += " AND #st = :st"
+            expr_values[":st"] = status
+        
+        scan_params = {
+            "FilterExpression": filter_expr,
+            "ExpressionAttributeValues": expr_values,
+            "Limit": limit
+        }
+        
+        if status:
+            scan_params["ExpressionAttributeNames"] = {"#st": "status"}
+        
+        response = table().scan(**scan_params)
+        items = response.get("Items", [])
+        
+        return {
+            "statusCode": 200,
+            "operation": "get_flows",
+            "wabaMetaId": meta_waba_id,
+            "count": len(items),
+            "flows": items
+        }
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_update_flow(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Update a stored Flow definition.
+    
+    Test Event:
+    {
+        "action": "update_flow",
+        "metaWabaId": "1347766229904230",
+        "flowId": "1234567890",
+        "flowStatus": "PUBLISHED",
+        "flowName": "Updated Flow Name"
+    }
+    """
+    meta_waba_id = event.get("metaWabaId", "")
+    flow_id = event.get("flowId", "")
+    flow_name = event.get("flowName", "")
+    flow_description = event.get("flowDescription", "")
+    flow_status = event.get("flowStatus", "")
+    flow_json = event.get("flowJson")
+    
+    error = validate_required_fields(event, ["metaWabaId", "flowId"])
+    if error:
+        return error
+    
+    flow_pk = f"FLOW#{meta_waba_id}#{flow_id}"
+    now = iso_now()
+    
+    try:
+        # Check if flow exists
+        flow = get_item(flow_pk)
+        if not flow:
+            return {"statusCode": 404, "error": f"Flow not found: {flow_id}"}
+        
+        # Build update expression
+        update_parts = ["lastUpdatedAt = :lu"]
+        expr_values = {":lu": now}
+        expr_names = {}
+        
+        if flow_name:
+            update_parts.append("flowName = :fn")
+            expr_values[":fn"] = flow_name
+        
+        if flow_description:
+            update_parts.append("flowDescription = :fd")
+            expr_values[":fd"] = flow_description
+        
+        if flow_status:
+            update_parts.append("#st = :st")
+            expr_values[":st"] = flow_status
+            expr_names["#st"] = "status"
+        
+        if flow_json is not None:
+            update_parts.append("flowJson = :fj")
+            expr_values[":fj"] = flow_json
+        
+        update_params = {
+            "Key": {MESSAGES_PK_NAME: flow_pk},
+            "UpdateExpression": "SET " + ", ".join(update_parts),
+            "ExpressionAttributeValues": expr_values
+        }
+        
+        if expr_names:
+            update_params["ExpressionAttributeNames"] = expr_names
+        
+        table().update_item(**update_params)
+        
+        return {
+            "statusCode": 200,
+            "operation": "update_flow",
+            "flowPk": flow_pk,
+            "flowId": flow_id,
+            "updated": True
+        }
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
 def handle_send_flow_message(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Send a WhatsApp Flow as an interactive message.
     

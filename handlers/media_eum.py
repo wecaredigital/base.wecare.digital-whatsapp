@@ -5,15 +5,51 @@
 
 import json
 import logging
+import uuid
 from typing import Any, Dict
 from handlers.base import (
     table, social, s3, MESSAGES_PK_NAME, MEDIA_BUCKET, MEDIA_PREFIX,
     iso_now, store_item, get_item, validate_required_fields,
-    get_phone_arn, origination_id_for_api
+    get_phone_arn, get_business_name, origination_id_for_api, mime_to_ext
 )
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
+
+# WABA to folder name mapping
+# S3 Structure:
+#   s3://dev.wecare.digital/WhatsApp/download/{waba_folder}/{filename}_{uuid}.{ext}
+#   s3://dev.wecare.digital/WhatsApp/upload/{waba_folder}/{filename}_{uuid}.{ext}
+WABA_FOLDER_MAP = {
+    "1347766229904230": "wecare",   # WECARE.DIGITAL
+    "1390647332755815": "manish",   # Manish Agarwal
+}
+
+
+def _get_waba_folder(meta_waba_id: str) -> str:
+    """Get folder name for WABA. Returns sanitized business name if not in map."""
+    if meta_waba_id in WABA_FOLDER_MAP:
+        return WABA_FOLDER_MAP[meta_waba_id]
+    # Fallback to sanitized business name
+    biz_name = get_business_name(meta_waba_id)
+    if biz_name:
+        return biz_name.lower().replace(" ", "_").replace(".", "")[:20]
+    return f"waba_{meta_waba_id[-6:]}"
+
+
+def _generate_secure_filename(base_name: str, mime_type: str = None) -> str:
+    """Generate secure filename with UUID to prevent guessing.
+    
+    Format: {base_name}_{uuid}.{ext}
+    Example: image_a1b2c3d4e5f6.jpg
+    """
+    unique_id = uuid.uuid4().hex[:12]  # 12 char hex = 48 bits of randomness
+    ext = mime_to_ext(mime_type) if mime_type else ""
+    if base_name:
+        # Sanitize base name
+        safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in base_name)[:30]
+        return f"{safe_name}_{unique_id}{ext}"
+    return f"file_{unique_id}{ext}"
 
 # AWS EUM Supported Media Types (from AWS documentation)
 EUM_SUPPORTED_MEDIA = {
@@ -52,6 +88,8 @@ EUM_SUPPORTED_MEDIA = {
 def handle_eum_download_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Download media from WhatsApp to S3 using AWS EUM Social API.
     
+    S3 Path: s3://dev.wecare.digital/WhatsApp/download/{waba_folder}/{filename}_{uuid}.{ext}
+    
     Uses: GetWhatsAppMessageMedia API
     Ref: https://docs.aws.amazon.com/social-messaging/latest/APIReference/API_GetWhatsAppMessageMedia.html
     
@@ -60,12 +98,13 @@ def handle_eum_download_media(event: Dict[str, Any], context: Any) -> Dict[str, 
         "action": "eum_download_media",
         "metaWabaId": "1347766229904230",
         "mediaId": "123456789",
-        "s3Key": "WhatsApp/downloads/media.jpg"
+        "filename": "document"
     }
     """
     meta_waba_id = event.get("metaWabaId", "")
     media_id = event.get("mediaId", "")
-    s3_key = event.get("s3Key", "")
+    filename = event.get("filename", "media")
+    mime_type = event.get("mimeType", "")
     
     error = validate_required_fields(event, ["metaWabaId", "mediaId"])
     if error:
@@ -75,14 +114,14 @@ def handle_eum_download_media(event: Dict[str, Any], context: Any) -> Dict[str, 
     if not phone_arn:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
-    # Generate S3 key if not provided
-    if not s3_key:
-        now = iso_now().replace(":", "").replace("-", "").replace(".", "")
-        s3_key = f"{MEDIA_PREFIX}downloads/{media_id}_{now}"
+    # Generate S3 key with WABA folder and secure filename
+    # Structure: WhatsApp/download/{waba_folder}/{filename}_{uuid}.{ext}
+    waba_folder = _get_waba_folder(meta_waba_id)
+    secure_filename = _generate_secure_filename(filename, mime_type)
+    s3_key = f"{MEDIA_PREFIX}download/{waba_folder}/{secure_filename}"
     
     try:
         # Use AWS Social Messaging API to download media to S3
-        # This is the recommended approach per AWS EUM documentation
         response = social().get_whatsapp_message_media(
             mediaId=media_id,
             originationPhoneNumberId=origination_id_for_api(phone_arn),
@@ -100,6 +139,7 @@ def handle_eum_download_media(event: Dict[str, Any], context: Any) -> Dict[str, 
             "itemType": "MEDIA_DOWNLOAD",
             "mediaId": media_id,
             "wabaMetaId": meta_waba_id,
+            "wabaFolder": waba_folder,
             "s3Bucket": MEDIA_BUCKET,
             "s3Key": s3_key,
             "s3Uri": f"s3://{MEDIA_BUCKET}/{s3_key}",
@@ -112,12 +152,13 @@ def handle_eum_download_media(event: Dict[str, Any], context: Any) -> Dict[str, 
             "statusCode": 200,
             "operation": "eum_download_media",
             "mediaId": media_id,
+            "wabaFolder": waba_folder,
             "s3Bucket": MEDIA_BUCKET,
             "s3Key": s3_key,
             "s3Uri": f"s3://{MEDIA_BUCKET}/{s3_key}",
             "fileSize": response.get("fileSize"),
             "mimeType": response.get("mimeType"),
-            "note": "Downloaded using AWS EUM GetWhatsAppMessageMedia API"
+            "note": "Downloaded to WhatsApp/download/{waba_folder}/ with secure UUID filename"
         }
     except ClientError as e:
         logger.exception(f"EUM download failed: {e}")
@@ -127,6 +168,8 @@ def handle_eum_download_media(event: Dict[str, Any], context: Any) -> Dict[str, 
 def handle_eum_upload_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Upload media from S3 to WhatsApp using AWS EUM Social API.
     
+    S3 Path: s3://dev.wecare.digital/WhatsApp/upload/{waba_folder}/{filename}_{uuid}.{ext}
+    
     Uses: PostWhatsAppMessageMedia API
     Ref: https://docs.aws.amazon.com/cli/latest/reference/socialmessaging/post-whatsapp-message-media.html
     
@@ -134,7 +177,7 @@ def handle_eum_upload_media(event: Dict[str, Any], context: Any) -> Dict[str, An
     {
         "action": "eum_upload_media",
         "metaWabaId": "1347766229904230",
-        "s3Key": "WhatsApp/uploads/image.jpg"
+        "s3Key": "WhatsApp/upload/wecare/image_abc123.jpg"
     }
     """
     meta_waba_id = event.get("metaWabaId", "")
@@ -148,6 +191,9 @@ def handle_eum_upload_media(event: Dict[str, Any], context: Any) -> Dict[str, An
     if not phone_arn:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
+    # Get WABA folder for tracking
+    waba_folder = _get_waba_folder(meta_waba_id)
+    
     try:
         # Validate media before upload
         validation = _validate_s3_media(s3_key)
@@ -155,7 +201,6 @@ def handle_eum_upload_media(event: Dict[str, Any], context: Any) -> Dict[str, An
             return {"statusCode": 400, "error": validation.get("error", "Invalid media")}
         
         # Use AWS Social Messaging API to upload media from S3
-        # This is the recommended approach per AWS EUM documentation
         response = social().post_whatsapp_message_media(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             sourceS3File={
@@ -174,6 +219,7 @@ def handle_eum_upload_media(event: Dict[str, Any], context: Any) -> Dict[str, An
             "itemType": "MEDIA_UPLOAD",
             "mediaId": media_id,
             "wabaMetaId": meta_waba_id,
+            "wabaFolder": waba_folder,
             "s3Bucket": MEDIA_BUCKET,
             "s3Key": s3_key,
             "mimeType": validation.get("mimeType"),
@@ -185,10 +231,11 @@ def handle_eum_upload_media(event: Dict[str, Any], context: Any) -> Dict[str, An
             "statusCode": 200,
             "operation": "eum_upload_media",
             "mediaId": media_id,
+            "wabaFolder": waba_folder,
             "s3Key": s3_key,
             "mimeType": validation.get("mimeType"),
             "fileSize": validation.get("fileSize"),
-            "note": "Uploaded using AWS EUM PostWhatsAppMessageMedia API"
+            "note": "Uploaded from WhatsApp/upload/{waba_folder}/ with secure UUID filename"
         }
     except ClientError as e:
         logger.exception(f"EUM upload failed: {e}")
@@ -448,6 +495,78 @@ def handle_eum_get_media_stats(event: Dict[str, Any], context: Any) -> Dict[str,
         }
     except ClientError as e:
         return {"statusCode": 500, "error": str(e)}
+
+
+def handle_eum_generate_s3_path(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Generate S3 path for media upload/download with secure UUID filename.
+    
+    S3 Structure:
+    - Download (inbound): s3://dev.wecare.digital/WhatsApp/download/{waba_folder}/{filename}_{uuid}.{ext}
+    - Upload (outbound):  s3://dev.wecare.digital/WhatsApp/upload/{waba_folder}/{filename}_{uuid}.{ext}
+    
+    Test Event:
+    {
+        "action": "eum_generate_s3_path",
+        "metaWabaId": "1347766229904230",
+        "direction": "download",
+        "filename": "invoice",
+        "mimeType": "application/pdf"
+    }
+    """
+    meta_waba_id = event.get("metaWabaId", "")
+    direction = event.get("direction", "download")  # download (inbound) or upload (outbound)
+    filename = event.get("filename", "file")
+    mime_type = event.get("mimeType", "")
+    
+    error = validate_required_fields(event, ["metaWabaId"])
+    if error:
+        return error
+    
+    if direction not in ["download", "upload"]:
+        return {"statusCode": 400, "error": "direction must be 'download' or 'upload'"}
+    
+    waba_folder = _get_waba_folder(meta_waba_id)
+    secure_filename = _generate_secure_filename(filename, mime_type)
+    s3_key = f"{MEDIA_PREFIX}{direction}/{waba_folder}/{secure_filename}"
+    
+    return {
+        "statusCode": 200,
+        "operation": "eum_generate_s3_path",
+        "s3Bucket": MEDIA_BUCKET,
+        "s3Key": s3_key,
+        "s3Uri": f"s3://{MEDIA_BUCKET}/{s3_key}",
+        "wabaFolder": waba_folder,
+        "direction": direction,
+        "secureFilename": secure_filename,
+        "structure": {
+            "bucket": MEDIA_BUCKET,
+            "prefix": MEDIA_PREFIX,
+            "direction": direction,
+            "wabaFolder": waba_folder,
+            "filename": secure_filename
+        }
+    }
+
+
+def handle_eum_list_waba_folders(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """List WABA folder mappings for S3 media storage.
+    
+    Test Event:
+    {
+        "action": "eum_list_waba_folders"
+    }
+    """
+    return {
+        "statusCode": 200,
+        "operation": "eum_list_waba_folders",
+        "wabaFolders": WABA_FOLDER_MAP,
+        "s3Structure": {
+            "bucket": MEDIA_BUCKET,
+            "downloadPath": f"s3://{MEDIA_BUCKET}/{MEDIA_PREFIX}download/{{waba_folder}}/{{filename}}_{{uuid}}.{{ext}}",
+            "uploadPath": f"s3://{MEDIA_BUCKET}/{MEDIA_PREFIX}upload/{{waba_folder}}/{{filename}}_{{uuid}}.{{ext}}"
+        },
+        "note": "Files use UUID suffix to prevent URL guessing. Simple flat structure per WABA."
+    }
 
 
 # Final Statement (as per requirements):

@@ -81,6 +81,7 @@ from handlers.business_profile import (
     handle_update_business_profile,
     handle_upload_profile_picture,
     handle_get_business_profile_apply_instructions,
+    handle_mark_business_profile_applied,
 )
 
 # Marketing & Templates Handlers
@@ -180,6 +181,8 @@ from handlers.media_eum import (
     handle_eum_get_supported_formats,
     handle_eum_setup_s3_lifecycle,
     handle_eum_get_media_stats,
+    handle_eum_generate_s3_path,
+    handle_eum_list_waba_folders,
 )
 
 # Refunds Handlers
@@ -229,6 +232,9 @@ from handlers.address_messages import (
 
 # Flows Messaging Handlers
 from handlers.flows_messaging import (
+    handle_create_flow,
+    handle_get_flows,
+    handle_update_flow,
     handle_send_flow_message,
     handle_send_flow_template,
     handle_flow_data_exchange,
@@ -284,6 +290,39 @@ from handlers.retry import (
     RETRY_HANDLERS,
 )
 
+# Welcome & Menu Handlers
+from handlers.welcome_menu import (
+    handle_get_welcome_config,
+    handle_update_welcome_config,
+    handle_send_welcome,
+    handle_get_menu_config,
+    handle_update_menu_config,
+    handle_send_menu,
+    handle_menu_selection,
+    handle_check_auto_welcome,
+    handle_check_auto_menu,
+    handle_seed_default_menu,
+    WELCOME_MENU_HANDLERS,
+)
+
+# Notification Handlers
+from handlers.notifications import (
+    handle_send_inbound_notification,
+    handle_send_outbound_notification,
+    handle_get_notification_config,
+    handle_update_notification_config,
+    handle_test_notification,
+    NOTIFICATION_HANDLERS,
+)
+
+# Bedrock Handlers (lazy import to avoid circular deps)
+def _get_bedrock_handlers():
+    try:
+        from src.bedrock.handlers import BEDROCK_HANDLERS
+        return BEDROCK_HANDLERS
+    except ImportError:
+        return {}
+
 # =============================================================================
 # HANDLER REGISTRY - Maps action names to handler functions
 # =============================================================================
@@ -310,6 +349,7 @@ EXTENDED_HANDLERS: Dict[str, Any] = {
     "update_business_profile": handle_update_business_profile,
     "upload_profile_picture": handle_upload_profile_picture,
     "get_business_profile_apply_instructions": handle_get_business_profile_apply_instructions,
+    "mark_business_profile_applied": handle_mark_business_profile_applied,
     
     # -------------------------------------------------------------------------
     # Marketing & Templates
@@ -409,6 +449,8 @@ EXTENDED_HANDLERS: Dict[str, Any] = {
     "eum_get_supported_formats": handle_eum_get_supported_formats,
     "eum_setup_s3_lifecycle": handle_eum_setup_s3_lifecycle,
     "eum_get_media_stats": handle_eum_get_media_stats,
+    "eum_generate_s3_path": handle_eum_generate_s3_path,
+    "eum_list_waba_folders": handle_eum_list_waba_folders,
     
     # -------------------------------------------------------------------------
     # Refunds
@@ -458,6 +500,9 @@ EXTENDED_HANDLERS: Dict[str, Any] = {
     # -------------------------------------------------------------------------
     # Flows Messaging
     # -------------------------------------------------------------------------
+    "create_flow": handle_create_flow,
+    "get_flows": handle_get_flows,
+    "update_flow": handle_update_flow,
     "send_flow_message": handle_send_flow_message,
     "send_flow_template": handle_send_flow_template,
     "flow_data_exchange": handle_flow_data_exchange,
@@ -507,6 +552,21 @@ EXTENDED_HANDLERS: Dict[str, Any] = {
     # Message Retry
     # -------------------------------------------------------------------------
     **RETRY_HANDLERS,
+    
+    # -------------------------------------------------------------------------
+    # Welcome & Menu
+    # -------------------------------------------------------------------------
+    **WELCOME_MENU_HANDLERS,
+    
+    # -------------------------------------------------------------------------
+    # Notifications (SES)
+    # -------------------------------------------------------------------------
+    **NOTIFICATION_HANDLERS,
+    
+    # -------------------------------------------------------------------------
+    # Bedrock AI (lazy loaded)
+    # -------------------------------------------------------------------------
+    **_get_bedrock_handlers(),
 }
 
 
@@ -610,6 +670,7 @@ def get_extended_actions_by_category() -> Dict[str, List[str]]:
             "update_business_profile",
             "upload_profile_picture",
             "get_business_profile_apply_instructions",
+            "mark_business_profile_applied",
         ],
         "Marketing & Templates": [
             "create_marketing_template",
@@ -690,6 +751,8 @@ def get_extended_actions_by_category() -> Dict[str, List[str]]:
             "eum_get_supported_formats",
             "eum_setup_s3_lifecycle",
             "eum_get_media_stats",
+            "eum_generate_s3_path",
+            "eum_list_waba_folders",
         ],
         "Refunds": [
             "create_refund",
@@ -729,6 +792,9 @@ def get_extended_actions_by_category() -> Dict[str, List[str]]:
             "delete_saved_address",
         ],
         "Flows Messaging": [
+            "create_flow",
+            "get_flows",
+            "update_flow",
             "send_flow_message",
             "send_flow_template",
             "flow_data_exchange",
@@ -780,6 +846,18 @@ def get_extended_actions_by_category() -> Dict[str, List[str]]:
             "process_retry_queue",
             "get_dead_letter_queue",
             "clear_dead_letter",
+        ],
+        "Welcome & Menu": [
+            "get_welcome_config",
+            "update_welcome_config",
+            "send_welcome",
+            "get_menu_config",
+            "update_menu_config",
+            "send_menu",
+            "handle_menu_selection",
+            "check_auto_welcome",
+            "check_auto_menu",
+            "seed_default_menu",
         ],
     }
 

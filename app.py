@@ -3102,12 +3102,14 @@ def handle_download_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         "action": "download_media",
         "metaWabaId": "1347766229904230",
         "mediaId": "123456789",
-        "s3Key": "WhatsApp/downloads/media.jpg"
+        "filename": "document",
     }
     """
     meta_waba_id = event.get("metaWabaId", "")
     media_id = event.get("mediaId", "")
     s3_key = event.get("s3Key", "")
+    filename = event.get("filename", "media")
+    mime_type = event.get("mimeType", "")
     
     if not meta_waba_id or not media_id:
         return {"statusCode": 400, "error": "metaWabaId and mediaId are required"}
@@ -3120,7 +3122,9 @@ def handle_download_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]
     
     # Generate S3 key if not provided
     if not s3_key:
-        s3_key = f"{MEDIA_PREFIX}downloads/{media_id}"
+        s3_key = generate_download_s3_key(meta_waba_id, filename, mime_type)
+    
+    waba_folder = get_waba_folder(meta_waba_id)
     
     try:
         response = social().get_whatsapp_message_media(

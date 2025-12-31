@@ -1,0 +1,35 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowSocialMessagingGetObject",
+            "Effect": "Allow",
+            "Principal": {"Service": "social-messaging.amazonaws.com"},
+            "Action": ["s3:GetObject", "s3:GetObjectVersion"],
+            "Resource": "arn:aws:s3:::dev.wecare.digital/WhatsApp/*",
+            "Condition": {"StringEquals": {"aws:SourceAccount": "010526260063"}}
+        },
+        {
+            "Sid": "AllowSocialMessagingPutObject",
+            "Effect": "Allow",
+            "Principal": {"Service": "social-messaging.amazonaws.com"},
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::dev.wecare.digital/WhatsApp/*",
+            "Condition": {"StringEquals": {"aws:SourceAccount": "010526260063"}}
+        },
+        {
+            "Sid": "AmazonBedrockLogsWrite",
+            "Effect": "Allow",
+            "Principal": {"Service": "bedrock.amazonaws.com"},
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::dev.wecare.digital/Bedrock/logs/*"
+        },
+        {
+            "Sid": "AmazonBedrockLogsGetBucketLocation",
+            "Effect": "Allow",
+            "Principal": {"Service": "bedrock.amazonaws.com"},
+            "Action": "s3:GetBucketLocation",
+            "Resource": "arn:aws:s3:::dev.wecare.digital"
+        }
+    ]
+}

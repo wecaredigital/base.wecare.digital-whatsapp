@@ -1,0 +1,148 @@
+{
+  "Comment": "Campaign Engine - Bulk WhatsApp Marketing",
+  "StartAt": "ExpandSegment",
+  "States": {
+    "ExpandSegment": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-south-1:010526260063:function:base-wecare-digital-whatsapp",
+        "Payload": {
+          "action": "expand_campaign_segment",
+          "campaignId.$": "$.campaignId",
+          "segmentId.$": "$.segmentId",
+          "tenantId.$": "$.tenantId"
+        }
+      },
+      "ResultPath": "$.segmentResult",
+      "ResultSelector": {
+        "recipients.$": "$.Payload.recipients",
+        "totalCount.$": "$.Payload.totalCount"
+      },
+      "Catch": [{"ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "HandleError"}],
+      "Next": "CreateBatches"
+    },
+    "CreateBatches": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-south-1:010526260063:function:base-wecare-digital-whatsapp",
+        "Payload": {
+          "action": "create_campaign_batches",
+          "campaignId.$": "$.campaignId",
+          "recipients.$": "$.segmentResult.recipients",
+          "batchSize.$": "$.batchSize",
+          "rateLimit.$": "$.rateLimit"
+        }
+      },
+      "ResultPath": "$.batchResult",
+      "ResultSelector": {
+        "batches.$": "$.Payload.batches",
+        "batchCount.$": "$.Payload.batchCount"
+      },
+      "Catch": [{"ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "HandleError"}],
+      "Next": "ProcessBatches"
+    },
+    "ProcessBatches": {
+      "Type": "Map",
+      "ItemsPath": "$.batchResult.batches",
+      "MaxConcurrency": 1,
+      "ItemSelector": {
+        "campaignId.$": "$.campaignId",
+        "batchId.$": "$$.Map.Item.Value.batchId",
+        "recipients.$": "$$.Map.Item.Value.recipients",
+        "templateName.$": "$.templateName",
+        "templateLanguage.$": "$.templateLanguage",
+        "templateParams.$": "$.templateParams",
+        "tenantId.$": "$.tenantId",
+        "phoneArn.$": "$.phoneArn",
+        "waitSeconds.$": "$.waitSeconds"
+      },
+      "ItemProcessor": {
+        "ProcessorConfig": {"Mode": "INLINE"},
+        "StartAt": "SendBatch",
+        "States": {
+          "SendBatch": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "arn:aws:lambda:ap-south-1:010526260063:function:base-wecare-digital-whatsapp",
+              "Payload": {
+                "action": "send_campaign_batch",
+                "campaignId.$": "$.campaignId",
+                "batchId.$": "$.batchId",
+                "recipients.$": "$.recipients",
+                "templateName.$": "$.templateName",
+                "templateLanguage.$": "$.templateLanguage",
+                "templateParams.$": "$.templateParams",
+                "tenantId.$": "$.tenantId",
+                "phoneArn.$": "$.phoneArn"
+              }
+            },
+            "ResultPath": "$.sendResult",
+            "Next": "RateLimitWait"
+          },
+          "RateLimitWait": {
+            "Type": "Wait",
+            "SecondsPath": "$.waitSeconds",
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.batchResults",
+      "Catch": [{"ErrorEquals": ["States.ALL"], "ResultPath": "$.error", "Next": "HandleError"}],
+      "Next": "AggregateResults"
+    },
+    "AggregateResults": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-south-1:010526260063:function:base-wecare-digital-whatsapp",
+        "Payload": {
+          "action": "aggregate_campaign_results",
+          "campaignId.$": "$.campaignId",
+          "batchResults.$": "$.batchResults",
+          "totalRecipients.$": "$.segmentResult.totalCount"
+        }
+      },
+      "ResultPath": "$.aggregateResult",
+      "Next": "UpdateCampaignStatus"
+    },
+    "UpdateCampaignStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-south-1:010526260063:function:base-wecare-digital-whatsapp",
+        "Payload": {
+          "action": "update_campaign_status",
+          "campaignId.$": "$.campaignId",
+          "status": "COMPLETED",
+          "results.$": "$.aggregateResult.Payload"
+        }
+      },
+      "ResultPath": "$.finalResult",
+      "Next": "CampaignSucceeded"
+    },
+    "HandleError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-south-1:010526260063:function:base-wecare-digital-whatsapp",
+        "Payload": {
+          "action": "handle_campaign_error",
+          "campaignId.$": "$.campaignId",
+          "error.$": "$.error"
+        }
+      },
+      "Next": "CampaignFailed"
+    },
+    "CampaignFailed": {
+      "Type": "Fail",
+      "Cause": "Campaign execution failed",
+      "Error": "CampaignError"
+    },
+    "CampaignSucceeded": {
+      "Type": "Succeed"
+    }
+  }
+}

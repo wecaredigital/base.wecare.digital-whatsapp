@@ -1,0 +1,114 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DynamoDBFullAccess",
+      "Effect": "Allow",
+      "Action": "dynamodb:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3FullAccess",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SocialMessagingEUMFullAccess",
+      "Effect": "Allow",
+      "Action": "social-messaging:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SNSFullAccess",
+      "Effect": "Allow",
+      "Action": "sns:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SESFullAccess",
+      "Effect": "Allow",
+      "Action": "ses:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SQSFullAccess",
+      "Effect": "Allow",
+      "Action": "sqs:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EventBridgeFullAccess",
+      "Effect": "Allow",
+      "Action": "events:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "StepFunctionsFullAccess",
+      "Effect": "Allow",
+      "Action": "states:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "LambdaFullAccess",
+      "Effect": "Allow",
+      "Action": "lambda:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "BedrockFullAccess",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:*",
+        "bedrock-agent:*",
+        "bedrock-agent-runtime:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OpenSearchServerlessFullAccess",
+      "Effect": "Allow",
+      "Action": "aoss:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchFullAccess",
+      "Effect": "Allow",
+      "Action": [
+        "logs:*",
+        "cloudwatch:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IAMFullAccess",
+      "Effect": "Allow",
+      "Action": "iam:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "KMSFullAccess",
+      "Effect": "Allow",
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SecretsManagerFullAccess",
+      "Effect": "Allow",
+      "Action": "secretsmanager:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "APIGatewayFullAccess",
+      "Effect": "Allow",
+      "Action": "apigateway:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "XRayFullAccess",
+      "Effect": "Allow",
+      "Action": "xray:*",
+      "Resource": "*"
+    }
+  ]
+}

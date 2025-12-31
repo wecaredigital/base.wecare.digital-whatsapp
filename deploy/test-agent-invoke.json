@@ -1,0 +1,5 @@
+{
+    "action": "bedrock_invoke_agent",
+    "inputText": "What services does WECARE.DIGITAL offer?",
+    "sessionId": "cli-test-001"
+}

@@ -390,6 +390,59 @@ def handle_upload_profile_picture(event: Dict[str, Any], context: Any) -> Dict[s
 # =============================================================================
 # GET APPLY INSTRUCTIONS (Runbook Action)
 # =============================================================================
+def handle_mark_business_profile_applied(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Mark business profile as applied/synced to WhatsApp.
+    
+    Call this after manually applying profile changes in Meta Business Manager.
+    
+    Test Event:
+    {
+        "action": "mark_business_profile_applied",
+        "metaWabaId": "1347766229904230"
+    }
+    """
+    meta_waba_id = event.get("metaWabaId", "")
+    tenant_id = event.get("tenantId", "")
+    phone_number_id = event.get("phoneNumberId", "")
+    
+    # Determine profile PK
+    if tenant_id and phone_number_id:
+        profile_pk = _build_profile_pk(tenant_id, phone_number_id)
+    elif meta_waba_id:
+        profile_pk = _build_profile_pk_by_waba(meta_waba_id)
+    else:
+        return error_response("metaWabaId or (tenantId + phoneNumberId) is required", 400)
+    
+    now = iso_now()
+    
+    try:
+        # Check if profile exists
+        profile = get_item(profile_pk)
+        if not profile:
+            return error_response(f"Profile not found: {profile_pk}", 404)
+        
+        # Update sync status
+        table().update_item(
+            Key={MESSAGES_PK_NAME: profile_pk},
+            UpdateExpression="SET syncStatus = :ss, lastSyncedToWhatsApp = :lst, lastUpdatedAt = :lu",
+            ExpressionAttributeValues={
+                ":ss": "synced",
+                ":lst": now,
+                ":lu": now
+            }
+        )
+        
+        return success_response(
+            "mark_business_profile_applied",
+            profilePk=profile_pk,
+            syncStatus="synced",
+            lastSyncedToWhatsApp=now,
+            message="Business profile marked as applied to WhatsApp"
+        )
+    except ClientError as e:
+        return error_response(str(e), 500)
+
+
 def handle_get_business_profile_apply_instructions(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Get instructions for applying business profile changes to WhatsApp.
     

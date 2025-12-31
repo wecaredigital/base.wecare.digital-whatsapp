@@ -1,0 +1,127 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DynamoDB",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:BatchGetItem",
+                "dynamodb:BatchWriteItem"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:ap-south-1:*:table/base-wecare-digital-whatsapp",
+                "arn:aws:dynamodb:ap-south-1:*:table/base-wecare-digital-whatsapp/index/*"
+            ]
+        },
+        {
+            "Sid": "S3",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::dev.wecare.digital",
+                "arn:aws:s3:::dev.wecare.digital/*"
+            ]
+        },
+        {
+            "Sid": "SocialMessaging",
+            "Effect": "Allow",
+            "Action": [
+                "social-messaging:SendWhatsAppMessage",
+                "social-messaging:GetWhatsAppMessageMedia",
+                "social-messaging:PostWhatsAppMessageMedia",
+                "social-messaging:DeleteWhatsAppMessageMedia",
+                "social-messaging:GetLinkedWhatsAppBusinessAccount",
+                "social-messaging:ListLinkedWhatsAppBusinessAccounts",
+                "social-messaging:GetLinkedWhatsAppBusinessAccountPhoneNumber",
+                "social-messaging:PutWhatsAppBusinessAccountEventDestinations",
+                "social-messaging:GetWhatsAppBusinessAccountEventDestinations",
+                "social-messaging:CreateWhatsAppMessageTemplate",
+                "social-messaging:UpdateWhatsAppMessageTemplate",
+                "social-messaging:DeleteWhatsAppMessageTemplate",
+                "social-messaging:ListWhatsAppMessageTemplates",
+                "social-messaging:GetWhatsAppMessageTemplate"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SNS",
+            "Effect": "Allow",
+            "Action": [
+                "sns:Publish",
+                "sns:Subscribe"
+            ],
+            "Resource": "arn:aws:sns:ap-south-1:*:*"
+        },
+        {
+            "Sid": "SQS",
+            "Effect": "Allow",
+            "Action": [
+                "sqs:SendMessage",
+                "sqs:ReceiveMessage",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes"
+            ],
+            "Resource": "arn:aws:sqs:ap-south-1:*:base-wecare-digital-whatsapp-*"
+        },
+        {
+            "Sid": "SES",
+            "Effect": "Allow",
+            "Action": [
+                "ses:SendEmail",
+                "ses:SendRawEmail"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "EventBridge",
+            "Effect": "Allow",
+            "Action": [
+                "events:PutEvents"
+            ],
+            "Resource": "arn:aws:events:ap-south-1:*:event-bus/base-wecare-digital-whatsapp-*"
+        },
+        {
+            "Sid": "StepFunctions",
+            "Effect": "Allow",
+            "Action": [
+                "states:StartExecution",
+                "states:SendTaskSuccess",
+                "states:SendTaskFailure"
+            ],
+            "Resource": "arn:aws:states:ap-south-1:*:stateMachine:base-wecare-digital-whatsapp-*"
+        },
+        {
+            "Sid": "Bedrock",
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:InvokeModel",
+                "bedrock:InvokeModelWithResponseStream",
+                "bedrock:InvokeAgent",
+                "bedrock:Retrieve",
+                "bedrock:RetrieveAndGenerate"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CloudWatchLogs",
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:ap-south-1:*:*"
+        }
+    ]
+}

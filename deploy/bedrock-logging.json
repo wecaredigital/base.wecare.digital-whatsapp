@@ -1,0 +1,11 @@
+{
+    "loggingConfig": {
+        "s3Config": {
+            "bucketName": "base-wecare-digital-whatsapp-bedrock-logs",
+            "keyPrefix": "bedrock-logs"
+        },
+        "textDataDeliveryEnabled": true,
+        "imageDataDeliveryEnabled": true,
+        "embeddingDataDeliveryEnabled": true
+    }
+}

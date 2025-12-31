@@ -18,10 +18,13 @@ Write-Host "Lambda Role: $ROLE_NAME"
 
 Write-Host "=== Creating/Updating inline policy ===" -ForegroundColor Green
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$policyFile = Join-Path $scriptDir "iam-policy.json"
+
 aws iam put-role-policy `
     --role-name $ROLE_NAME `
     --policy-name $POLICY_NAME `
-    --policy-document file://iam-policy.json
+    --policy-document "file://$policyFile"
 
 Write-Host "Policy '$POLICY_NAME' attached to role '$ROLE_NAME'"
 

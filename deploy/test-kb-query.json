@@ -1,0 +1,12 @@
+{
+    "input": {
+        "text": "What is WECARE.DIGITAL?"
+    },
+    "retrieveAndGenerateConfiguration": {
+        "type": "KNOWLEDGE_BASE",
+        "knowledgeBaseConfiguration": {
+            "knowledgeBaseId": "NVF0OLULMG",
+            "modelArn": "arn:aws:bedrock:ap-south-1:010526260063:inference-profile/apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        }
+    }
+}

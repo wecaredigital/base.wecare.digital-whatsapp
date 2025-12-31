@@ -1,0 +1,31 @@
+[
+    {
+        "Rules": [
+            {
+                "ResourceType": "index",
+                "Resource": ["index/base-wecare-wa-kb/*"],
+                "Permission": [
+                    "aoss:CreateIndex",
+                    "aoss:DeleteIndex",
+                    "aoss:UpdateIndex",
+                    "aoss:DescribeIndex",
+                    "aoss:ReadDocument",
+                    "aoss:WriteDocument"
+                ]
+            },
+            {
+                "ResourceType": "collection",
+                "Resource": ["collection/base-wecare-wa-kb"],
+                "Permission": [
+                    "aoss:CreateCollectionItems",
+                    "aoss:DescribeCollectionItems",
+                    "aoss:UpdateCollectionItems"
+                ]
+            }
+        ],
+        "Principal": [
+            "arn:aws:iam::010526260063:role/base-wecare-digital-whatsapp-bedrock-kb-role",
+            "arn:aws:iam::010526260063:root"
+        ]
+    }
+]

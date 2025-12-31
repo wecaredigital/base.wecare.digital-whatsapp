@@ -15,6 +15,12 @@
     "FORWARD_DELETE_UPLOADED_MEDIA": "false",
     "EMAIL_NOTIFICATION_ENABLED": "true",
     "EMAIL_SNS_TOPIC_ARN": "arn:aws:sns:ap-south-1:010526260063:base-wecare-digital",
+    "BEDROCK_REGION": "ap-south-1",
+    "BEDROCK_MODEL_ID": "apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "BEDROCK_AGENT_ID": "UFVSBWGCIU",
+    "BEDROCK_AGENT_ALIAS_ID": "IDEFJTWLLK",
+    "BEDROCK_KB_ID": "NVF0OLULMG",
+    "AUTO_REPLY_BEDROCK_ENABLED": "true",
     "WABA_PHONE_MAP_JSON": "{\"1347766229904230\":{\"businessAccountName\":\"WECARE.DIGITAL\",\"phoneArn\":\"arn:aws:social-messaging:ap-south-1:010526260063:phone-number-id/3f8934395ae24a4583a413087a3d3fb0\",\"phone\":\"+919330994400\",\"meta_phone_number_id\":\"831049713436137\",\"payment\":{\"razorpay\":{\"configName\":\"WECARE-DIGITAL\",\"status\":\"active\",\"mcc\":\"4722\",\"purposeCode\":\"03\",\"gatewayMID\":\"acc_HDfub6wOfQybuH\"},\"upi\":{\"configName\":\"wecare-digital-upi\",\"status\":\"active\",\"mcc\":\"4722\",\"purposeCode\":\"03\",\"upiId\":\"9330994400@sbi\"}}},\"1390647332755815\":{\"businessAccountName\":\"Manish Agarwal\",\"phoneArn\":\"arn:aws:social-messaging:ap-south-1:010526260063:phone-number-id/0b0d77d6d54645d991db7aa9cf1b0eb2\",\"phone\":\"+919903300044\",\"meta_phone_number_id\":\"888782840987368\",\"payment\":{\"razorpay\":{\"configName\":\"ManishAgarwal\",\"status\":\"active\",\"mcc\":\"4722\",\"purposeCode\":\"03\",\"gatewayMID\":\"acc_HDfub6wOfQybuH\"},\"upi\":{\"configName\":\"manish-agarwal-upi\",\"status\":\"active\",\"mcc\":\"4722\",\"purposeCode\":\"03\",\"upiId\":\"9330994400@sbi\"}}}}"
   }
 }

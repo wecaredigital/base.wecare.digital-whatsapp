@@ -1,0 +1,19 @@
+{
+    "type": "WEB",
+    "webConfiguration": {
+        "sourceConfiguration": {
+            "urlConfiguration": {
+                "seedUrls": [
+                    {"url": "https://www.wecare.digital"}
+                ]
+            }
+        },
+        "crawlerConfiguration": {
+            "crawlerLimits": {
+                "rateLimit": 300,
+                "maxPages": 25000
+            },
+            "scope": "HOST_ONLY"
+        }
+    }
+}
