@@ -37,7 +37,7 @@ curl -X POST https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com \
 
 ```
 ├── app.py              # Lambda entry point
-├── handlers/           # 34 handler modules
+├── handlers/           # 27 handler modules (167 handlers)
 ├── deploy/             # Deployment scripts
 ├── tests/              # Unit tests
 └── docs/               # Documentation
