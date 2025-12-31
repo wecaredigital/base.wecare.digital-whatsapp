@@ -143,9 +143,14 @@ from handlers.base import (
 # -----------------------------------------------------------------------------
 # LEGACY REGISTRY - For backward compatibility
 # -----------------------------------------------------------------------------
-from handlers.registry import (
-    HANDLER_CATEGORIES,
-)
+HANDLER_CATEGORIES = {
+    "messaging": "Send WhatsApp messages",
+    "media": "Media file operations",
+    "templates": "Template management",
+    "payments": "Payment processing",
+    "webhooks": "Webhook handling",
+    "analytics": "Analytics & reporting",
+}
 
 # -----------------------------------------------------------------------------
 # PUBLIC API

@@ -1,4 +1,0 @@
-{
-  "source": ["whatsapp.webhook"],
-  "detail-type": ["status.sent", "status.delivered", "status.read", "status.failed"]
-}
