@@ -1,6 +1,0 @@
-{
-    "action": "send_text",
-    "metaWabaId": "1390647332755815",
-    "to": "+447447840003",
-    "text": "Test text via Lambda invoke - Manish Agarwal WABA"
-}

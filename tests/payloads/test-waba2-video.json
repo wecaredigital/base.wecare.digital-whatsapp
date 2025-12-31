@@ -1,8 +1,0 @@
-{
-    "action": "send_media",
-    "metaWabaId": "1390647332755815",
-    "to": "+447447840003",
-    "mediaType": "video",
-    "s3Key": "WhatsApp/test-video.mp4",
-    "caption": "WABA2 Test: Video from S3"
-}

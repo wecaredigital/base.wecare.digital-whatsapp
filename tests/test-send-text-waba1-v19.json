@@ -1,6 +1,0 @@
-{
-  "action": "send_text",
-  "metaWabaId": "1347766229904230",
-  "to": "+447447840003",
-  "text": "Hello from WECARE.DIGITAL via Lambda v19 send_text handler!"
-}

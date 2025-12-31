@@ -1,7 +1,0 @@
-{
-  "action": "send_image",
-  "metaWabaId": "1390647332755815",
-  "to": "+919330994400",
-  "s3Key": "WhatsApp/test/test-image.jpg",
-  "caption": "Test image from Manish Agarwal Lambda"
-}

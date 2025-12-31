@@ -1,9 +1,0 @@
-{
-    "action": "send_contact",
-    "metaWabaId": "1390647332755815",
-    "to": "+447447840003",
-    "contacts": [{
-        "name": {"formatted_name": "WABA2 Test Contact", "first_name": "Test", "last_name": "Contact"},
-        "phones": [{"phone": "+919876543210", "type": "MOBILE"}]
-    }]
-}

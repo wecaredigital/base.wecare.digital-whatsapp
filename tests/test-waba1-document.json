@@ -1,8 +1,0 @@
-{
-  "action": "send_document",
-  "metaWabaId": "1390647332755815",
-  "to": "+447447840003",
-  "s3Key": "WhatsApp/test-document.txt",
-  "filename": "test-document.txt",
-  "caption": "Test document from WABA1"
-}

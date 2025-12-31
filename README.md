@@ -6,10 +6,10 @@ Production-ready WhatsApp Business API built on AWS End User Messaging (EUM) Soc
 
 ## Features
 
-- **167 Handlers** - Complete WhatsApp Business API coverage
-- **AWS Native** - Uses AWS EUM Social (no Meta Graph API)
-- **Modular Architecture** - Hexagonal/Clean architecture pattern
-- **Production Ready** - CloudWatch alarms, DLQ, monitoring
+- 167 Handlers - Complete WhatsApp Business API coverage
+- AWS Native - Uses AWS EUM Social (no Meta Graph API)
+- Modular Architecture - Hexagonal/Clean architecture pattern
+- Production Ready - CloudWatch alarms, DLQ, monitoring
 
 ## Quick Start
 
@@ -31,16 +31,20 @@ curl -X POST https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com \
 
 ## Documentation
 
-- [API Reference](docs/API.md) - Complete API documentation
-- [Quick Reference](docs/QUICK_REFERENCE.md) - Common actions cheat sheet
-- [Architecture](docs/ARCHITECTURE.md) - System design
-- [DynamoDB Schema](docs/dynamodb-contract.md) - Database schema
+| Document | Description |
+|----------|-------------|
+| [API Reference](docs/API.md) | Complete API documentation |
+| [Quick Reference](docs/QUICK_REFERENCE.md) | Common actions cheat sheet |
+| [Architecture](docs/ARCHITECTURE.md) | System design |
+| [DynamoDB Schema](docs/dynamodb-contract.md) | Database schema |
+| [Handler Guide](docs/HANDLER_GUIDE.md) | How to add handlers |
+| [Patterns](docs/PATTERNS.md) | Code patterns |
 
 ## Infrastructure
 
 | Component | Resource |
 |-----------|----------|
-| Lambda | `base-wecare-digital-whatsapp` (167 handlers) |
+| Lambda | `base-wecare-digital-whatsapp` |
 | DynamoDB | `base-wecare-digital-whatsapp` (16 GSIs) |
 | API Gateway | `https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com` |
 | SNS | `base-wecare-digital` |
@@ -55,6 +59,23 @@ curl -X POST https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com \
 | WECARE.DIGITAL | `1347766229904230` | +91 93309 94400 |
 | Manish Agarwal | `1390647332755815` | +91 99033 00044 |
 
+## Project Structure
+
+```
+├── app.py                 # Lambda entry point
+├── handlers/              # 167 handler modules
+│   ├── messaging.py       # Send messages
+│   ├── queries.py         # Query data
+│   ├── config.py          # Configuration
+│   ├── templates_eum.py   # AWS EUM templates
+│   ├── payments.py        # Payments
+│   ├── extended.py        # Handler registry
+│   └── ...
+├── deploy/                # Deployment scripts
+├── tests/                 # Unit tests
+└── docs/                  # Documentation
+```
+
 ## Development
 
 ```bash
@@ -66,22 +87,6 @@ git push origin main
 
 # Manual deploy
 powershell -File deploy/deploy-167-handlers.ps1
-```
-
-## Project Structure
-
-```
-├── app.py                 # Lambda entry point
-├── handlers/              # 167 handler modules
-│   ├── messaging.py       # Send messages
-│   ├── queries.py         # Query data
-│   ├── config.py          # Configuration
-│   ├── templates_eum.py   # AWS EUM templates
-│   ├── payments.py        # Payments
-│   └── ...
-├── deploy/                # Deployment scripts
-├── tests/                 # Unit tests
-└── docs/                  # Documentation
 ```
 
 ## CI/CD
@@ -100,8 +105,6 @@ CloudWatch Alarms:
 - Lambda throttles > 0
 - Lambda duration > 10s avg
 - SQS DLQ messages > 0
-
-All alarms notify via SNS → email.
 
 ## License
 
