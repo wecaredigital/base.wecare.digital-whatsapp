@@ -19,8 +19,10 @@ def test_handlers_import():
         dispatch_extended_handler,
         list_extended_actions,
         get_extended_actions_by_category,
-        EXTENDED_HANDLERS,
+        get_extended_handlers,
     )
+    
+    EXTENDED_HANDLERS = get_extended_handlers()
     
     print(f"✓ Imported handlers module")
     print(f"✓ Total extended handlers: {len(EXTENDED_HANDLERS)}")

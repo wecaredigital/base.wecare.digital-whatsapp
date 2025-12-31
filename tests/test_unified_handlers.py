@@ -27,6 +27,10 @@ def test_unified_dispatcher():
         generate_help,
         CATEGORIES,
     )
+    from handlers.dispatcher import ensure_handlers_initialized
+    
+    # Ensure handlers are initialized before testing
+    ensure_handlers_initialized()
     
     # Test handler count
     count = get_handler_count()
@@ -162,10 +166,12 @@ def test_extended_handlers():
     print("=" * 60)
     
     from handlers import (
-        EXTENDED_HANDLERS,
+        get_extended_handlers,
         get_extended_actions_by_category,
         is_extended_action,
     )
+    
+    EXTENDED_HANDLERS = get_extended_handlers()
     
     print(f"✓ Extended handlers: {len(EXTENDED_HANDLERS)}")
     
