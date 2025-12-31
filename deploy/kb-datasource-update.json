@@ -10,8 +10,8 @@
         },
         "crawlerConfiguration": {
             "crawlerLimits": {
-                "rateLimit": 300,
-                "maxPages": 25000
+                "rateLimit": 30000,
+                "maxPages": 2500000
             },
             "scope": "HOST_ONLY"
         }

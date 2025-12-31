@@ -1,0 +1,33 @@
+{
+    "TableName": "base-wecare-digital-whatsapp",
+    "Item": {
+        "pk": {"S": "TENANT#1347766229904230"},
+        "sk": {"S": "MENU#self_service"},
+        "itemType": {"S": "MENU_CONFIG"},
+        "buttonText": {"S": "Self Service"},
+        "bodyText": {"S": "Choose an action. I'll explain in 1 line + share the link."},
+        "sections": {"L": [
+            {"M": {
+                "title": {"S": "FORMS & REQUESTS"},
+                "rows": {"L": [
+                    {"M": {"rowId": {"S": "ss_submit"}, "title": {"S": "Submit Request"}, "description": {"S": "New request"}, "actionType": {"S": "open_url"}, "actionValue": {"S": "https://www.wecare.digital/submit-request"}, "answerText": {"S": "Submit a new request here:"}}},
+                    {"M": {"rowId": {"S": "ss_amend"}, "title": {"S": "Request Amendment"}, "description": {"S": "Update a request"}, "actionType": {"S": "open_url"}, "actionValue": {"S": "https://www.wecare.digital/request-amendment"}, "answerText": {"S": "Need to change something? Use this amendment form:"}}},
+                    {"M": {"rowId": {"S": "ss_track"}, "title": {"S": "Request Tracking"}, "description": {"S": "Status check"}, "actionType": {"S": "open_url"}, "actionValue": {"S": "https://www.wecare.digital/request-tracking"}, "answerText": {"S": "Track your request here:"}}}
+                ]}
+            }},
+            {"M": {
+                "title": {"S": "DOCUMENTS"},
+                "rows": {"L": [
+                    {"M": {"rowId": {"S": "ss_dropdocs"}, "title": {"S": "Drop Docs"}, "description": {"S": "Upload documents"}, "actionType": {"S": "open_url"}, "actionValue": {"S": "https://www.wecare.digital/drop-docs"}, "answerText": {"S": "Upload or drop documents here:"}}}
+                ]}
+            }},
+            {"M": {
+                "title": {"S": "ENTERPRISE"},
+                "rows": {"L": [
+                    {"M": {"rowId": {"S": "ss_enterprise"}, "title": {"S": "Enterprise Assist"}, "description": {"S": "Business support"}, "actionType": {"S": "open_url"}, "actionValue": {"S": "https://www.wecare.digital/enterprise-assist"}, "answerText": {"S": "For enterprise support, start here:"}}}
+                ]}
+            }}
+        ]},
+        "createdAt": {"S": "2025-12-31T00:00:00Z"}
+    }
+}
