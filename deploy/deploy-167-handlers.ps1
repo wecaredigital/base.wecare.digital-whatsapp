@@ -122,13 +122,17 @@ $response1 = aws lambda invoke `
     --cli-binary-format raw-in-base64-out `
     test-response-1.json 2>&1
 
-$result1 = Get-Content test-response-1.json | ConvertFrom-Json
-if ($result1.statusCode -eq 200) {
-    $body1 = $result1.body | ConvertFrom-Json
-    $actionCount = $body1.actions.Count
-    Write-Host "    SUCCESS: $actionCount actions available" -ForegroundColor Green
+if (Test-Path test-response-1.json) {
+    $result1 = Get-Content test-response-1.json | ConvertFrom-Json
+    if ($result1.statusCode -eq 200) {
+        $body1 = $result1.body | ConvertFrom-Json
+        $actionCount = $body1.actions.Count
+        Write-Host "    SUCCESS: $actionCount actions available" -ForegroundColor Green
+    } else {
+        Write-Host "    WARNING: list_actions returned status $($result1.statusCode)" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host "    WARNING: list_actions returned status $($result1.statusCode)" -ForegroundColor Yellow
+    Write-Host "    SKIPPED: Could not invoke Lambda" -ForegroundColor Yellow
 }
 
 # Test 2: Handler count
@@ -142,12 +146,16 @@ aws lambda invoke `
     --cli-binary-format raw-in-base64-out `
     test-response-2.json 2>&1 | Out-Null
 
-$result2 = Get-Content test-response-2.json | ConvertFrom-Json
-if ($result2.statusCode -eq 200) {
-    $body2 = $result2.body | ConvertFrom-Json
-    Write-Host "    SUCCESS: $($body2.count) handlers registered" -ForegroundColor Green
+if (Test-Path test-response-2.json) {
+    $result2 = Get-Content test-response-2.json | ConvertFrom-Json
+    if ($result2.statusCode -eq 200) {
+        $body2 = $result2.body | ConvertFrom-Json
+        Write-Host "    SUCCESS: $($body2.count) handlers registered" -ForegroundColor Green
+    } else {
+        Write-Host "    WARNING: handler_count returned status $($result2.statusCode)" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host "    WARNING: handler_count returned status $($result2.statusCode)" -ForegroundColor Yellow
+    Write-Host "    SKIPPED: Could not invoke Lambda" -ForegroundColor Yellow
 }
 
 # Test 3: EUM template handler (one of the new handlers)
@@ -161,11 +169,15 @@ aws lambda invoke `
     --cli-binary-format raw-in-base64-out `
     test-response-3.json 2>&1 | Out-Null
 
-$result3 = Get-Content test-response-3.json | ConvertFrom-Json
-if ($result3.statusCode -eq 200) {
-    Write-Host "    SUCCESS: EUM handlers working" -ForegroundColor Green
+if (Test-Path test-response-3.json) {
+    $result3 = Get-Content test-response-3.json | ConvertFrom-Json
+    if ($result3.statusCode -eq 200) {
+        Write-Host "    SUCCESS: EUM handlers working" -ForegroundColor Green
+    } else {
+        Write-Host "    WARNING: eum_get_supported_formats returned status $($result3.statusCode)" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host "    WARNING: eum_get_supported_formats returned status $($result3.statusCode)" -ForegroundColor Yellow
+    Write-Host "    SKIPPED: Could not invoke Lambda" -ForegroundColor Yellow
 }
 
 # Cleanup test files

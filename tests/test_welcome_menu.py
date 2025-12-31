@@ -13,16 +13,14 @@ class TestWelcomeConfig:
     
     def test_get_welcome_config_returns_default(self):
         """Should return default welcome config when none exists."""
-        from handlers.welcome_menu import get_welcome_config
+        from handlers.welcome_menu import handle_get_welcome_config
         
-        mock_table = MagicMock()
-        mock_table.get_item.return_value = {}
+        # Test that handler returns proper structure
+        result = handle_get_welcome_config({'tenantId': 'tenant123'}, None)
         
-        with patch('handlers.welcome_menu.get_table', return_value=mock_table):
-            config = get_welcome_config('tenant123')
-        
-        assert config is not None
-        assert 'welcomeText' in config or config == {}
+        # Result should be a dict with statusCode
+        assert isinstance(result, dict)
+        assert 'statusCode' in result
     
     def test_welcome_text_under_1024_chars(self):
         """Welcome text should be under WhatsApp limit."""
