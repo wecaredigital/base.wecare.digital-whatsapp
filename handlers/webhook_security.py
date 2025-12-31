@@ -1,8 +1,15 @@
+# =============================================================================
 # Webhook Security & Verification Handlers
+# =============================================================================
+# Production-grade webhook security for WhatsApp Business API.
 # Ref: https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/components
 #
-# This module handles webhook verification and signature validation
-# for secure webhook processing.
+# Features:
+# - Webhook verification (GET challenge-response)
+# - HMAC-SHA256 signature validation
+# - Replay attack prevention with timestamp validation
+# - Rate limiting for webhook endpoints
+# - Secure configuration storage
 # =============================================================================
 
 import json
@@ -10,18 +17,153 @@ import logging
 import hashlib
 import hmac
 import os
-from typing import Any, Dict, Optional
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional, Tuple
 from handlers.base import (
-    table, MESSAGES_PK_NAME, iso_now, store_item, get_item,
-    validate_required_fields
+    table, MESSAGES_PK_NAME, iso_now, store_item, get_item, update_item,
+    validate_required_fields, success_response, error_response,
 )
 from botocore.exceptions import ClientError
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
-# Environment variables for webhook security
+# =============================================================================
+# SECURITY CONFIGURATION
+# =============================================================================
 WEBHOOK_VERIFY_TOKEN = os.environ.get("WEBHOOK_VERIFY_TOKEN", "")
 WEBHOOK_APP_SECRET = os.environ.get("WEBHOOK_APP_SECRET", "")
+
+# Timestamp validation window (seconds) - reject webhooks older than this
+TIMESTAMP_TOLERANCE_SECONDS = 300  # 5 minutes
+
+# Rate limiting configuration
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_MAX_REQUESTS = 100
+
+
+# =============================================================================
+# SECURITY HELPER FUNCTIONS
+# =============================================================================
+
+def compute_signature(payload: bytes, secret: str) -> str:
+    """Compute HMAC-SHA256 signature for payload."""
+    return hmac.new(
+        secret.encode('utf-8'),
+        payload,
+        hashlib.sha256
+    ).hexdigest()
+
+
+def validate_signature(payload: bytes, signature: str, secret: str) -> Tuple[bool, str]:
+    """Validate webhook signature with timing-safe comparison.
+    
+    Returns: (is_valid, error_message)
+    """
+    if not signature:
+        return False, "Missing signature"
+    
+    if not secret:
+        return False, "App secret not configured"
+    
+    # Parse signature format
+    if not signature.startswith("sha256="):
+        return False, "Invalid signature format. Expected 'sha256=...'"
+    
+    provided_sig = signature[7:].lower()
+    computed_sig = compute_signature(payload, secret).lower()
+    
+    # Timing-safe comparison to prevent timing attacks
+    if not hmac.compare_digest(provided_sig, computed_sig):
+        return False, "Signature mismatch"
+    
+    return True, ""
+
+
+def validate_timestamp(timestamp: int) -> Tuple[bool, str]:
+    """Validate webhook timestamp to prevent replay attacks.
+    
+    Returns: (is_valid, error_message)
+    """
+    if not timestamp:
+        return True, ""  # Timestamp validation is optional
+    
+    current_time = int(time.time())
+    time_diff = abs(current_time - timestamp)
+    
+    if time_diff > TIMESTAMP_TOLERANCE_SECONDS:
+        return False, f"Timestamp too old. Difference: {time_diff}s, max allowed: {TIMESTAMP_TOLERANCE_SECONDS}s"
+    
+    return True, ""
+
+
+def check_rate_limit(source_ip: str, waba_id: str = "") -> Tuple[bool, str]:
+    """Check if request is within rate limits.
+    
+    Returns: (is_allowed, error_message)
+    """
+    # Create rate limit key
+    rate_key = f"RATE_LIMIT#{source_ip}#{waba_id}" if waba_id else f"RATE_LIMIT#{source_ip}"
+    
+    try:
+        now = int(time.time())
+        window_start = now - RATE_LIMIT_WINDOW_SECONDS
+        
+        # Get current rate limit record
+        record = get_item(rate_key)
+        
+        if record:
+            # Check if within window
+            last_reset = record.get("windowStart", 0)
+            request_count = record.get("requestCount", 0)
+            
+            if last_reset >= window_start:
+                # Still in same window
+                if request_count >= RATE_LIMIT_MAX_REQUESTS:
+                    return False, f"Rate limit exceeded. Max {RATE_LIMIT_MAX_REQUESTS} requests per {RATE_LIMIT_WINDOW_SECONDS}s"
+                
+                # Increment counter
+                update_item(rate_key, {"requestCount": request_count + 1})
+            else:
+                # New window, reset counter
+                update_item(rate_key, {
+                    "windowStart": now,
+                    "requestCount": 1,
+                })
+        else:
+            # First request, create record
+            store_item({
+                MESSAGES_PK_NAME: rate_key,
+                "itemType": "RATE_LIMIT",
+                "windowStart": now,
+                "requestCount": 1,
+                "ttl": now + RATE_LIMIT_WINDOW_SECONDS * 2,  # Auto-expire
+            })
+        
+        return True, ""
+    
+    except ClientError as e:
+        logger.warning(f"Rate limit check failed: {e}")
+        return True, ""  # Allow on error to prevent blocking legitimate requests
+
+
+def log_security_event(event_type: str, details: Dict[str, Any], success: bool) -> None:
+    """Log security-related events for audit trail."""
+    try:
+        now = iso_now()
+        event_pk = f"SECURITY_EVENT#{event_type}#{now}"
+        
+        store_item({
+            MESSAGES_PK_NAME: event_pk,
+            "itemType": "SECURITY_EVENT",
+            "eventType": event_type,
+            "success": success,
+            "details": details,
+            "timestamp": now,
+            "ttl": int(time.time()) + 86400 * 30,  # Keep for 30 days
+        })
+    except Exception as e:
+        logger.warning(f"Failed to log security event: {e}")
 
 
 def handle_verify_webhook(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -127,32 +269,77 @@ def handle_validate_webhook_signature(event: Dict[str, Any], context: Any) -> Di
     Meta signs all webhook payloads with your app secret. This handler
     validates the signature to ensure the payload is authentic.
     
+    Security Features:
+    - HMAC-SHA256 signature validation
+    - Timing-safe comparison (prevents timing attacks)
+    - Timestamp validation (prevents replay attacks)
+    - Rate limiting (prevents abuse)
+    
     Test Event:
     {
         "action": "validate_webhook_signature",
         "signature": "sha256=abc123...",
         "payload": "{\"object\":\"whatsapp_business_account\",...}",
-        "appSecret": "your_app_secret"
+        "appSecret": "your_app_secret",
+        "timestamp": 1704067200
     }
     
     Or from API Gateway:
     {
         "action": "validate_webhook_signature",
         "headers": {
-            "X-Hub-Signature-256": "sha256=abc123..."
+            "X-Hub-Signature-256": "sha256=abc123...",
+            "X-Hub-Timestamp": "1704067200"
         },
-        "body": "{\"object\":\"whatsapp_business_account\",...}"
+        "body": "{\"object\":\"whatsapp_business_account\",...}",
+        "requestContext": {
+            "identity": {"sourceIp": "1.2.3.4"}
+        }
     }
     """
-    # Extract signature and payload
+    # Extract parameters
     headers = event.get("headers", {}) or {}
+    request_context = event.get("requestContext", {}) or {}
+    identity = request_context.get("identity", {}) or {}
     
     # Handle case-insensitive headers
-    signature = event.get("signature") or headers.get("X-Hub-Signature-256") or headers.get("x-hub-signature-256", "")
+    signature = (event.get("signature") or 
+                 headers.get("X-Hub-Signature-256") or 
+                 headers.get("x-hub-signature-256", ""))
+    
     payload = event.get("payload") or event.get("body", "")
     app_secret = event.get("appSecret") or WEBHOOK_APP_SECRET
     
+    # Get timestamp for replay protection
+    timestamp_str = (event.get("timestamp") or 
+                     headers.get("X-Hub-Timestamp") or 
+                     headers.get("x-hub-timestamp", ""))
+    timestamp = int(timestamp_str) if timestamp_str else 0
+    
+    # Get source IP for rate limiting
+    source_ip = identity.get("sourceIp", "unknown")
+    
+    # Log the validation attempt
+    log_details = {
+        "sourceIp": source_ip,
+        "hasSignature": bool(signature),
+        "payloadSize": len(payload) if payload else 0,
+        "hasTimestamp": bool(timestamp),
+    }
+    
+    # Rate limit check
+    rate_ok, rate_error = check_rate_limit(source_ip)
+    if not rate_ok:
+        log_security_event("WEBHOOK_RATE_LIMITED", log_details, False)
+        return {
+            "statusCode": 429,
+            "error": rate_error,
+            "valid": False
+        }
+    
+    # Validate required fields
     if not signature:
+        log_security_event("WEBHOOK_MISSING_SIGNATURE", log_details, False)
         return {
             "statusCode": 400,
             "error": "Missing X-Hub-Signature-256 header",
@@ -160,6 +347,7 @@ def handle_validate_webhook_signature(event: Dict[str, Any], context: Any) -> Di
         }
     
     if not payload:
+        log_security_event("WEBHOOK_MISSING_PAYLOAD", log_details, False)
         return {
             "statusCode": 400,
             "error": "Missing payload/body",
@@ -174,47 +362,42 @@ def handle_validate_webhook_signature(event: Dict[str, Any], context: Any) -> Di
             "valid": False
         }
     
-    # Parse signature
-    if not signature.startswith("sha256="):
-        return {
-            "statusCode": 400,
-            "error": "Invalid signature format. Expected 'sha256=...'",
-            "valid": False
-        }
+    # Convert payload to bytes
+    payload_bytes = payload.encode('utf-8') if isinstance(payload, str) else payload
     
-    expected_signature = signature[7:]  # Remove "sha256=" prefix
-    
-    # Calculate expected signature
-    # Ensure payload is bytes
-    if isinstance(payload, str):
-        payload_bytes = payload.encode('utf-8')
-    else:
-        payload_bytes = payload
-    
-    calculated_signature = hmac.new(
-        app_secret.encode('utf-8'),
-        payload_bytes,
-        hashlib.sha256
-    ).hexdigest()
-    
-    # Compare signatures (timing-safe comparison)
-    is_valid = hmac.compare_digest(expected_signature.lower(), calculated_signature.lower())
-    
-    if not is_valid:
-        logger.warning("Webhook signature validation failed")
+    # Validate signature
+    sig_valid, sig_error = validate_signature(payload_bytes, signature, app_secret)
+    if not sig_valid:
+        log_security_event("WEBHOOK_INVALID_SIGNATURE", {**log_details, "error": sig_error}, False)
+        logger.warning(f"Webhook signature validation failed: {sig_error}")
         return {
             "statusCode": 403,
-            "error": "Invalid signature",
+            "error": sig_error,
             "valid": False
         }
     
+    # Validate timestamp (replay protection)
+    if timestamp:
+        ts_valid, ts_error = validate_timestamp(timestamp)
+        if not ts_valid:
+            log_security_event("WEBHOOK_REPLAY_ATTACK", {**log_details, "error": ts_error}, False)
+            logger.warning(f"Webhook timestamp validation failed: {ts_error}")
+            return {
+                "statusCode": 403,
+                "error": ts_error,
+                "valid": False
+            }
+    
+    # Success
+    log_security_event("WEBHOOK_VALIDATED", log_details, True)
     logger.info("Webhook signature validated successfully")
     
     return {
         "statusCode": 200,
         "operation": "validate_webhook_signature",
         "valid": True,
-        "message": "Signature is valid"
+        "message": "Signature is valid",
+        "timestampValidated": bool(timestamp),
     }
 
 

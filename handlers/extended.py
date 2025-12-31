@@ -273,6 +273,17 @@ from handlers.event_destinations import (
 # AWS EUM Template Handlers
 from handlers.templates_eum import EUM_TEMPLATE_HANDLERS
 
+# Message Retry Handlers
+from handlers.retry import (
+    handle_retry_message,
+    handle_get_retry_status,
+    handle_get_pending_retries,
+    handle_process_retry_queue,
+    handle_get_dead_letter_queue,
+    handle_clear_dead_letter,
+    RETRY_HANDLERS,
+)
+
 # =============================================================================
 # HANDLER REGISTRY - Maps action names to handler functions
 # =============================================================================
@@ -491,6 +502,11 @@ EXTENDED_HANDLERS: Dict[str, Any] = {
     # AWS EUM Templates
     # -------------------------------------------------------------------------
     **EUM_TEMPLATE_HANDLERS,
+    
+    # -------------------------------------------------------------------------
+    # Message Retry
+    # -------------------------------------------------------------------------
+    **RETRY_HANDLERS,
 }
 
 
@@ -756,6 +772,14 @@ def get_extended_actions_by_category() -> Dict[str, List[str]]:
             "eum_create_template_media",
             "eum_sync_templates",
             "eum_get_template_status",
+        ],
+        "Message Retry": [
+            "retry_message",
+            "get_retry_status",
+            "get_pending_retries",
+            "process_retry_queue",
+            "get_dead_letter_queue",
+            "clear_dead_letter",
         ],
     }
 
