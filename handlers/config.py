@@ -3,6 +3,7 @@
 # =============================================================================
 # Configuration, status, and utility handlers.
 # All handlers use the unified base utilities from handlers/base.py.
+# Version: 1.0.1 - CI/CD enabled
 # =============================================================================
 
 import json
