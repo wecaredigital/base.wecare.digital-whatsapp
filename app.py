@@ -848,7 +848,7 @@ def send_text_reply(phone_arn: str, to_wa: str, reply_to_msg_id: Optional[str]) 
         "messaging_product": "whatsapp",
         "to": to_formatted,
         "type": "text",
-        "text": {"preview_url": False, "body": AUTO_REPLY_TEXT},
+        "text": {"preview_url": False, "body": str(AUTO_REPLY_TEXT)},
     }
     if reply_to_msg_id:
         payload["context"] = {"message_id": reply_to_msg_id}
@@ -1090,7 +1090,7 @@ def send_email_notification(sender_name: str, sender_number: str, message_text: 
     logger.info(f"Sending email notification for message from {sender_number}")
     try:
         resp = sns().publish(
-            TopicArn=EMAIL_SNS_TOPIC_ARN,
+            TopicArn=str(EMAIL_SNS_TOPIC_ARN),
             Subject=subject,
             Message=html_body,
             MessageStructure="string",
@@ -6930,7 +6930,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     up = upload_s3_media_to_whatsapp(phone_arn, s3_key)
                     out_media_id = up.get("mediaId") or ""
                     if out_media_id:
-                        send_media_message(phone_arn, FORWARD_TO_WA_ID, mtype, out_media_id, 
+                        send_media_message(phone_arn, str(FORWARD_TO_WA_ID), mtype, out_media_id, 
                                                        caption=caption, filename=filename)
                         delete_uploaded_media(phone_arn, out_media_id)
 
