@@ -1489,7 +1489,7 @@ def update_message_templates(waba_aws_id: str, waba_meta_id: str,
             "byQuality": {"GREEN": 0, "YELLOW": 0, "RED": 0, "UNKNOWN": 0},
             "byLanguage": {},
         }
-        w
+        
         try:
             response = social().list_whatsapp_message_templates(id=waba_aws_id)
             raw_templates = response.get("templates", [])
