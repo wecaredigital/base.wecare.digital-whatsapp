@@ -1,26 +1,27 @@
 # Development Guide
 
+**Last Updated:** 2026-01-01
+
 ## Handler Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            lambda_handler (app.py)                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  1. Parse event                                                              │
+│  1. Parse event (API GW, SNS, SQS, EventBridge, direct, CLI)                │
 │  2. Extract action                                                           │
-│  3. Dispatch to handler                                                      │
+│  3. Dispatch to unified_dispatch (handlers/dispatcher.py)                    │
 │                                                                              │
-│     ┌─────────────────┐         ┌─────────────────────────────────────────┐ │
-│     │  Core Handlers  │         │        Extended Handlers                │ │
-│     │   (app.py)      │         │     (handlers/extended.py)              │ │
-│     │                 │         │                                         │ │
-│     │  send_text      │         │  ┌─────────────┐  ┌─────────────┐      │ │
-│     │  send_image     │         │  │ messaging   │  │ payments    │      │ │
-│     │  get_messages   │         │  │ queries     │  │ webhooks    │      │ │
-│     │  ...            │         │  │ templates   │  │ analytics   │      │ │
-│     └─────────────────┘         │  │ media_eum   │  │ groups      │      │ │
-│                                 │  └─────────────┘  └─────────────┘      │ │
-│                                 └─────────────────────────────────────────┘ │
+│     ┌─────────────────────────────────────────────────────────────────────┐ │
+│     │                    Unified Dispatcher (201+ handlers)               │ │
+│     │                                                                     │ │
+│     │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐ │ │
+│     │  │ messaging   │  │ payments    │  │ templates   │  │ bedrock   │ │ │
+│     │  │ queries     │  │ webhooks    │  │ media_eum   │  │ welcome   │ │ │
+│     │  │ config      │  │ analytics   │  │ flows       │  │ notify    │ │ │
+│     │  │ groups      │  │ catalogs    │  │ carousels   │  │ retry     │ │ │
+│     │  └─────────────┘  └─────────────┘  └─────────────┘  └───────────┘ │ │
+│     └─────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -91,13 +92,14 @@ def get_extended_actions_by_category():
 - `gsi_tenant` - Multi-tenant
 - `gsi_payment_status` - Payment status
 - `gsi_template_name` - Templates
+- `gsi_template_waba` - Template + WABA
 - `gsi_campaign` - Campaigns
 - `gsi_webhook_event` - Webhook events
 
 ## Deploy
 
 ```powershell
-# Deploy Lambda
+# Deploy Lambda (201+ handlers)
 .\deploy\deploy-167-handlers.ps1
 
 # Setup DynamoDB
@@ -117,10 +119,15 @@ python -m pytest tests/ -v
 
 | Resource | Name |
 |----------|------|
-| Lambda | `base-wecare-digital-whatsapp` |
-| DynamoDB | `base-wecare-digital-whatsapp` |
+| Lambda (Main) | `base-wecare-digital-whatsapp` |
+| Lambda (Email) | `base-wecare-digital-whatsapp-email-notifier` |
+| Lambda (Bedrock) | `base-wecare-digital-whatsapp-bedrock-worker` |
+| Lambda (Agent Core) | `base-wecare-digital-whatsapp-agent-core` |
+| DynamoDB | `base-wecare-digital-whatsapp` (16 GSIs) |
 | S3 | `dev.wecare.digital/WhatsApp/` |
 | SNS | `base-wecare-digital` |
-| SQS | `base-wecare-digital-whatsapp-webhooks` |
-| EventBridge | `base-wecare-digital-whatsapp` |
+| SQS | 7 queues (webhooks, notify, bedrock, DLQs) |
+| EventBridge | 5 rules |
+| Bedrock Agent | `UFVSBWGCIU` |
+| Knowledge Base | `NVF0OLULMG` |
 | Region | `ap-south-1` |

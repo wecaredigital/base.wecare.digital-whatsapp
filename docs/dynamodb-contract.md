@@ -1,12 +1,16 @@
 # DynamoDB Contract
 
+**Last Updated:** 2026-01-01
+
 Single-table design for WhatsApp Business API integration.
 
 ## Table Configuration
 
 - **Table Name:** `base-wecare-digital-whatsapp`
 - **Primary Key:** `pk` (String)
+- **Sort Key:** `sk` (String)
 - **Billing Mode:** PAY_PER_REQUEST
+- **GSIs:** 16 indexes
 
 ## Entity Types
 

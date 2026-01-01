@@ -37,7 +37,7 @@ curl -X POST https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com \
 | WECARE.DIGITAL | `1347766229904230` | +91 93309 94400 |
 | Manish Agarwal | `1390647332755815` | +91 99033 00044 |
 
-## Handlers (167 total)
+## Handlers (201+ total)
 
 ### Messaging (16)
 | Action | Description |

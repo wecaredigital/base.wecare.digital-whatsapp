@@ -293,15 +293,15 @@ from handlers.retry import (
 # Welcome & Menu Handlers
 from handlers.welcome_menu import (
     handle_get_welcome_config,
-    handle_update_welcome_config,
-    handle_send_welcome,
     handle_get_menu_config,
-    handle_update_menu_config,
-    handle_send_menu,
-    handle_menu_selection,
-    handle_check_auto_welcome,
-    handle_check_auto_menu,
-    handle_seed_default_menu,
+    handle_send_welcome,
+    handle_send_menu_main,
+    handle_send_menu_services,
+    handle_send_menu_selfservice,
+    handle_send_menu_support,
+    handle_list_reply,
+    handle_check_keyword_trigger,
+    handle_seed_menu_configs,
     WELCOME_MENU_HANDLERS,
 )
 
@@ -849,15 +849,15 @@ def get_extended_actions_by_category() -> Dict[str, List[str]]:
         ],
         "Welcome & Menu": [
             "get_welcome_config",
-            "update_welcome_config",
             "send_welcome",
             "get_menu_config",
-            "update_menu_config",
-            "send_menu",
-            "handle_menu_selection",
-            "check_auto_welcome",
-            "check_auto_menu",
-            "seed_default_menu",
+            "send_menu_main",
+            "send_menu_services",
+            "send_menu_selfservice",
+            "send_menu_support",
+            "handle_list_reply",
+            "check_keyword_trigger",
+            "seed_menu_configs",
         ],
     }
 

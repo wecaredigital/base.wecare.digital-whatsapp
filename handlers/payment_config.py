@@ -61,10 +61,30 @@ PURPOSE_CODES = {
 # These are the known active payment configurations for existing tenants.
 # They will be seeded to DynamoDB on first access or via seed_payment_configs action.
 
+# =============================================================================
+# PRE-CONFIGURED TENANT PAYMENT CONFIGURATIONS (EXACT SPEC VALUES)
+# =============================================================================
+# 8A) WECARE-DIGITAL
+#   WABA ID: 1347766229904230
+#   Phone: +91 9330994400
+#   Gateway MID: acc_HDfub6wOfQybuH
+#   UPI: 9330994400@sbi
+#   MCC: 4722, Purpose: 03
+#   Names: WECARE-DIGITAL (gateway), wecare-digital-upi (UPI)
+#
+# 8B) ManishAgarwal
+#   WABA ID: 1390647332755815
+#   Phone: +91 9903300044
+#   Gateway MID: acc_HDfub6wOfQybuH
+#   UPI: 9330994400@sbi
+#   MCC: 4722, Purpose: 03
+#   Names: ManishAgarwal (gateway), manish-agarwal-upi (UPI)
+# =============================================================================
+
 TENANT_PAYMENT_CONFIGS = {
     "wecare-digital": {
         "tenantId": "wecare-digital",
-        "displayName": "WECARE.DIGITAL",
+        "displayName": "WECARE-DIGITAL",
         "wabaId": "1347766229904230",
         "phoneE164": "+919330994400",
         "mcc": "4722",
@@ -75,14 +95,14 @@ TENANT_PAYMENT_CONFIGS = {
                 "type": "PG",
                 "status": "active",
                 "paymentGatewayMid": "acc_HDfub6wOfQybuH",
-                "notes": "Test payment configuration working"
+                "notes": "Payment Gateway (Razorpay)"
             },
             {
                 "configName": "wecare-digital-upi",
                 "type": "UPI",
                 "status": "active",
                 "upiId": "9330994400@sbi",
-                "notes": "Payment configuration active"
+                "notes": "UPI Intent"
             }
         ]
     },
@@ -99,14 +119,14 @@ TENANT_PAYMENT_CONFIGS = {
                 "type": "PG",
                 "status": "active",
                 "paymentGatewayMid": "acc_HDfub6wOfQybuH",
-                "notes": "Test payment configuration working"
+                "notes": "Payment Gateway (Razorpay)"
             },
             {
                 "configName": "manish-agarwal-upi",
                 "type": "UPI",
                 "status": "active",
                 "upiId": "9330994400@sbi",
-                "notes": "Payment configuration active"
+                "notes": "UPI Intent"
             }
         ]
     }

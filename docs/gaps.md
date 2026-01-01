@@ -1,8 +1,30 @@
 # AWS EUM Social - Feature Gaps & Workarounds
 
+**Last Updated:** 2026-01-01
+
 This document lists WhatsApp Business API features that are NOT available via AWS End User Messaging Social today, along with implemented workarounds.
 
 > **Policy:** If any feature is impossible with AWS EUM today, implement a "capability-stub + runbook/manual-flow".
+> **Region:** ap-south-1 (Mumbai) is primary for all services.
+
+---
+
+## Summary Table
+
+| Feature | AWS EUM Support | Workaround |
+|---------|-----------------|------------|
+| Business Profile GET/UPDATE | ❌ Not supported | Local DynamoDB + manual apply |
+| Template Analytics (detailed) | ❌ Not supported | Local tracking via webhooks |
+| Phone Quality History | ❌ Not supported | Local snapshots |
+| Conversation Analytics | ❌ Not supported | Local estimation |
+| Catalog Management | ❌ Not supported | Local DynamoDB |
+| Flow Builder | ❌ Not supported | Manual creation + local tracking |
+| Group Management | ❌ Not supported | Local metadata |
+| Calling Features | ❌ Not supported | Deep links only |
+| Templates CRUD | ✅ Supported | AWS EUM APIs |
+| Media Upload/Download | ✅ Supported | AWS EUM APIs |
+| Send Messages | ✅ Supported | AWS EUM APIs |
+| Event Destinations | ✅ Supported | SNS/EventBridge |
 
 ---
 
@@ -19,15 +41,27 @@ We store business profile data locally in DynamoDB and provide manual apply inst
 
 **Handlers:**
 - `get_business_profile` - Returns locally stored profile
-- `update_business_profile` - Updates local DynamoDB record
-- `upload_profile_picture` - Uploads to S3, stores reference
+- `update_business_profile` - Updates local DynamoDB record (with version history)
+- `upload_business_profile_avatar` - Uploads to S3, optionally to WhatsApp media store
 - `get_business_profile_apply_instructions` - Returns AWS Console URL + checklist
+- `mark_business_profile_applied` - Acknowledges manual application
 
 **DynamoDB Schema:**
 ```
 PK: TENANT#{tenantId}
 SK: BIZPROFILE#{phoneNumberId}
-Fields: about, address, description, email, websites[], vertical, profile_picture_s3_key, appliedState, appliedAt
+Fields: about, address, description, email, websites[], vertical, 
+        profile_picture_s3_key, appliedState, appliedAt, versionHistory[]
+```
+
+**Upgrade Hook:**
+```python
+# handlers/business_profile.py
+class AwsEumProvider:
+    @staticmethod
+    def update_business_profile(phone_arn, profile_data):
+        """STUB: Returns NotSupportedYet until AWS adds this API."""
+        return {"success": False, "error": "NotSupported"}
 ```
 
 **Manual Flow:**

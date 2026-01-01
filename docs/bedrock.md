@@ -26,7 +26,7 @@ All Bedrock resources follow the `base-wecare-digital-whatsapp` naming conventio
 
 - **Agent Name:** `base-wecare-digital-whatsapp`
 - **Region:** `ap-south-1`
-- **Foundation Model:** `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` (APAC inference profile)
+- **Foundation Model:** `anthropic.claude-3-haiku-20240307-v1:0`
 - **Embedding Model:** `amazon.titan-embed-text-v2:0`
 - **Session TTL:** 1800 seconds (30 minutes)
 
@@ -122,7 +122,7 @@ This creates:
 
 1. Go to AWS Console → Bedrock → Agents (ap-south-1)
 2. Create agent: `base-wecare-digital-whatsapp`
-3. Select model: `apac.anthropic.claude-3-5-sonnet-20241022-v2:0`
+3. Select model: `anthropic.claude-3-haiku-20240307-v1:0`
 4. Add system prompt (see above)
 5. Create alias: `prod`
 6. Note Agent ID and Alias ID
@@ -312,7 +312,7 @@ const ossCollection = new opensearchserverless.CfnCollection(this, 'BedrockKBCol
 const agent = new bedrock.CfnAgent(this, 'WhatsAppAgent', {
     agentName: 'base-wecare-digital-whatsapp',
     agentResourceRoleArn: agentRole.roleArn,
-    foundationModel: 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0',
+    foundationModel: 'anthropic.claude-3-haiku-20240307-v1:0',
     instruction: SYSTEM_PROMPT,
     idleSessionTtlInSeconds: 1800,
 });
@@ -434,7 +434,7 @@ aws bedrock-agent update-agent \
     --agent-id <AGENT_ID> \
     --agent-name base-wecare-digital-whatsapp \
     --instruction "New instructions..." \
-    --foundation-model apac.anthropic.claude-3-5-sonnet-20241022-v2:0 \
+    --foundation-model anthropic.claude-3-haiku-20240307-v1:0 \
     --agent-resource-role-arn <ROLE_ARN> \
     --region ap-south-1
 

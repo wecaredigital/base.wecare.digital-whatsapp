@@ -27,20 +27,30 @@ ENV/
 env/
 
 # Lambda packages
+*.zip
 lambda-*.zip
 temp_extract/
 temp_package*/
+temp-lambda-package/
 
 # Test output files
 out.json
 response.json
 test-response*.json
 test-payload.json
+ddb-scan.json
+scan-expr.json
+send-msg.json
+wa-msg-body.json
+subs.txt
 
 # Temp test files
 flow-*.json
 uk-*.json
-logs.json
+logs*.json
+logs*.txt
+temp_*.json
+bedrock-*.json
 
 # IDE
 .idea/

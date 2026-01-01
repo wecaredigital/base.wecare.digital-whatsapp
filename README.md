@@ -8,7 +8,7 @@ Production-ready WhatsApp Business API on AWS End User Messaging Social.
 
 ```
 ┌──────────────┐    ┌─────────────┐    ┌─────────────────────────────────┐
-│   WhatsApp   │───▶│  AWS EUM    │───▶│         Lambda (167 handlers)   │
+│   WhatsApp   │───▶│  AWS EUM    │───▶│         Lambda (201+ handlers)  │
 │   (Meta)     │    │   Social    │    │                                 │
 └──────────────┘    └─────────────┘    └───────────────┬─────────────────┘
                                                        │
@@ -37,8 +37,10 @@ curl -X POST https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com \
 
 ```
 ├── app.py              # Lambda entry point
-├── handlers/           # 27 handler modules (167 handlers)
+├── handlers/           # 31 handler modules (201+ handlers)
+├── src/                # Runtime, Bedrock, notifications
 ├── deploy/             # Deployment scripts
+├── cdk/                # CDK TypeScript IaC
 ├── tests/              # Unit tests
 └── docs/               # Documentation
 ```

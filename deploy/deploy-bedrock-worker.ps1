@@ -43,7 +43,7 @@ if ($LASTEXITCODE -ne 0) {
         --zip-file fileb://lambda-bedrock-worker.zip `
         --timeout 600 `
         --memory-size 1024 `
-        --environment "Variables={MESSAGES_TABLE_NAME=$PROJECT,MEDIA_BUCKET=dev.wecare.digital,BEDROCK_REGION=ap-south-1,BEDROCK_AGENT_ID=UFVSBWGCIU,BEDROCK_AGENT_ALIAS_ID=IDEFJTWLLK,BEDROCK_KB_ID=NVF0OLULMG,BEDROCK_MODEL_ID=apac.anthropic.claude-3-5-sonnet-20241022-v2:0,AUTO_REPLY_BEDROCK_ENABLED=false}" `
+        --environment "Variables={MESSAGES_TABLE_NAME=$PROJECT,MEDIA_BUCKET=dev.wecare.digital,BEDROCK_REGION=ap-south-1,BEDROCK_AGENT_ID=UFVSBWGCIU,BEDROCK_AGENT_ALIAS_ID=IDEFJTWLLK,BEDROCK_KB_ID=NVF0OLULMG,BEDROCK_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0,AUTO_REPLY_BEDROCK_ENABLED=false}" `
         --region $REGION | Out-Null
     
     Write-Host "  + Function created" -ForegroundColor Green

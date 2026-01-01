@@ -84,6 +84,11 @@ def get_reaction_emoji(message_type: str) -> str:
 EMAIL_NOTIFICATION_ENABLED = os.environ.get("EMAIL_NOTIFICATION_ENABLED", "true").lower() == "true"
 EMAIL_SNS_TOPIC_ARN = os.environ.get("EMAIL_SNS_TOPIC_ARN", "arn:aws:sns:ap-south-1:010526260063:base-wecare-digital")
 
+# Welcome Menu & Bedrock config
+WELCOME_ENABLED = os.environ.get("WELCOME_ENABLED", "true").lower() == "true"
+MENU_ON_KEYWORDS_ENABLED = os.environ.get("MENU_ON_KEYWORDS_ENABLED", "true").lower() == "true"
+BEDROCK_AUTO_REPLY_ENABLED = os.environ.get("BEDROCK_AUTO_REPLY_ENABLED", "false").lower() == "true"
+
 WABA_PHONE_MAP = json.loads(os.environ.get("WABA_PHONE_MAP_JSON", "{}") or "{}")
 
 # Table accessor (lazy)
@@ -796,7 +801,21 @@ def update_phone_quality_rating(waba_id: str, phone_number_id: str,
             "rating": quality_rating,
             "throughputStatus": throughput_status,
             "checkedAt": now,
-        }
+        }        # Get existing history and limit to 50 entries to avoid DynamoDB item size limit
+        MAX_HISTORY_ENTRIES = 50
+        existing_history = []
+        try:
+            existing = table().get_item(Key={MESSAGES_PK_NAME: quality_pk})
+            if existing.get("Item"):
+                existing_history = existing["Item"].get("qualityHistory", []) or []
+        except ClientError:
+            pass
+        
+        # Append new entry and trim to max size
+        existing_history.append(history_entry)
+        if len(existing_history) > MAX_HISTORY_ENTRIES:
+            existing_history = existing_history[-MAX_HISTORY_ENTRIES:]
+
         
         # Update or create quality record in DynamoDB
         try:
@@ -820,7 +839,7 @@ def update_phone_quality_rating(waba_id: str, phone_number_id: str,
                     "    throughputNote = :tnote, "
                     "    throughputEligibleForIncrease = :telig, "
                     "    lastCheckedAt = :now, "
-                    "    qualityHistory = list_append(if_not_exists(qualityHistory, :empty), :entry)"
+                    "    qualityHistory = :history"
                 ),
                 ExpressionAttributeValues={
                     ":it": "PHONE_QUALITY",
@@ -840,8 +859,7 @@ def update_phone_quality_rating(waba_id: str, phone_number_id: str,
                     ":tnote": throughput_note,
                     ":telig": throughput_eligible_for_increase,
                     ":now": now,
-                    ":entry": [history_entry],
-                    ":empty": [],
+                    ":history": existing_history,
                 },
             )
         except ClientError as e:
@@ -885,7 +903,7 @@ def update_infrastructure_config() -> Dict[str, Any]:
     
     # Check VPC endpoints for social-messaging
     try:
-        response = ec2.describe_vpc_endpoints(
+        response = ec2().describe_vpc_endpoints(
             Filters=[{"Name": "service-name", "Values": [service_name]}]
         )
         for ep in response.get("VpcEndpoints", []):
@@ -906,7 +924,7 @@ def update_infrastructure_config() -> Dict[str, Any]:
     
     # Check service-linked role
     try:
-        response = iam.get_role(RoleName="AWSServiceRoleForSocialMessaging")
+        response = iam().get_role(RoleName="AWSServiceRoleForSocialMessaging")
         role = response.get("Role", {})
         service_linked_role = {
             "roleName": role.get("RoleName", ""),
@@ -3406,6 +3424,11 @@ def handle_get_config(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "emailNotificationEnabled": EMAIL_NOTIFICATION_ENABLED,
             "emailSnsTopicArn": EMAIL_SNS_TOPIC_ARN,
             "wabaPhoneMap": WABA_PHONE_MAP,
+            # Welcome Menu & Bedrock config
+            "welcomeEnabled": WELCOME_ENABLED,
+            "menuOnKeywordsEnabled": MENU_ON_KEYWORDS_ENABLED,
+            "bedrockAutoReplyEnabled": BEDROCK_AUTO_REPLY_ENABLED,
+            "timezone": os.environ.get("TZ", "UTC"),
         },
     }
 
@@ -5863,6 +5886,24 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         except Exception as e:
                             logger.exception(f"Failed to confirm SNS subscription: {e}")
                             return api_response({"statusCode": 500, "error": str(e)}, 500)
+                
+                # Handle SNS Notification via API Gateway HTTP
+                # Convert to synthetic Records format for webhook processing
+                if body.get("Type") == "Notification" and body.get("Message"):
+                    logger.info("Converting API Gateway SNS Notification to Records format")
+                    synthetic_record = {
+                        "EventSource": "aws:sns",
+                        "Sns": {
+                            "Type": body.get("Type"),
+                            "MessageId": body.get("MessageId", ""),
+                            "TopicArn": body.get("TopicArn", ""),
+                            "Message": body.get("Message"),  # Keep as string, will be parsed later
+                            "Timestamp": body.get("Timestamp", ""),
+                        }
+                    }
+                    event["Records"] = [synthetic_record]
+                    logger.info("Synthetic Records created for webhook processing")
+                
                 # Merge body into event for action processing
                 for key, value in body.items():
                     event[key] = value
@@ -6226,6 +6267,56 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         message_type=mtype,
                         received_at=received_at
                     )
+
+                # Auto-welcome for new contacts (first message or cooldown expired)
+                if WELCOME_ENABLED and waba_meta_id and from_wa:
+                    try:
+                        from handlers.welcome_menu import handle_check_auto_welcome
+                        welcome_result = handle_check_auto_welcome({
+                            "metaWabaId": waba_meta_id,
+                            "from": from_wa,
+                        }, context)
+                        if welcome_result.get("sent"):
+                            logger.info(f"Auto-welcome sent to {from_wa}: {welcome_result}")
+                    except Exception as e:
+                        logger.warning(f"Auto-welcome failed: {e}")
+
+                # Auto-menu on keywords (hi, help, menu, start)
+                if MENU_ON_KEYWORDS_ENABLED and waba_meta_id and from_wa and mtype == "text" and text_body:
+                    try:
+                        from handlers.welcome_menu import handle_check_auto_menu
+                        menu_result = handle_check_auto_menu({
+                            "metaWabaId": waba_meta_id,
+                            "from": from_wa,
+                            "messageText": text_body,
+                        }, context)
+                        if menu_result.get("sent"):
+                            logger.info(f"Auto-menu sent to {from_wa}: {menu_result}")
+                    except Exception as e:
+                        logger.warning(f"Auto-menu failed: {e}")
+
+                # Queue message for Bedrock AI processing
+                if BEDROCK_AUTO_REPLY_ENABLED and waba_meta_id and from_wa and mtype == "text" and text_body:
+                    try:
+                        bedrock_queue_url = os.environ.get("BEDROCK_QUEUE_URL", "")
+                        if bedrock_queue_url:
+                            import boto3
+                            sqs = boto3.client("sqs")
+                            sqs.send_message(
+                                QueueUrl=bedrock_queue_url,
+                                MessageBody=json.dumps({
+                                    "metaWabaId": waba_meta_id,
+                                    "from": from_wa,
+                                    "messageText": text_body,
+                                    "waMessageId": wa_msg_id,
+                                    "phoneArn": phone_arn,
+                                    "senderName": sender_name,
+                                    "receivedAt": received_at,
+                                })
+                            )
+                            logger.info(f"Queued message for Bedrock AI: {from_wa}")
+                    except Exception as e:
+                        logger.warning(f"Failed to queue for Bedrock: {e}")
 
                 # Forward media to another number (optional)
                 if FORWARD_ENABLED and FORWARD_TO_WA_ID and inbound_media_id and phone_arn and s3_key:

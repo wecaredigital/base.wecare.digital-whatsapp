@@ -1,13 +1,14 @@
 # Repository Map
 
-> Generated: 2025-12-31 | Spec: Kiro Final Prompt v7
+> Generated: 2026-01-01 | Spec: Kiro Final Prompt v7
 
 ## Overview
 
 **Project:** base-wecare-digital-whatsapp  
 **Type:** AWS Lambda-based WhatsApp Business API backend  
 **Region:** ap-south-1 (Mumbai)  
-**Integration:** AWS End User Messaging Social (EUM) — NO Meta Graph API runtime calls
+**Integration:** AWS End User Messaging Social (EUM) — NO Meta Graph API runtime calls  
+**Handlers:** 201+ action handlers across 31 modules
 
 ## Architecture Principles
 
@@ -22,23 +23,26 @@
 ```
 base.wecare.digital-whatsapp/
 ├── app.py                    # Lambda entry point (thin wrapper)
-├── handlers/                 # 167+ action handlers (27 modules)
+├── handlers/                 # 201+ action handlers (31 modules)
 │   ├── __init__.py          # Package exports + unified_dispatch
 │   ├── dispatcher.py        # Unified dispatcher with registry
 │   ├── base.py              # Lazy clients, env, utilities
 │   ├── messaging.py         # send_text, send_image, send_template, etc.
+│   ├── queries.py           # DynamoDB query handlers
+│   ├── config.py            # Configuration handlers
 │   ├── templates_eum.py     # AWS EUM template CRUD
 │   ├── templates_meta.py    # Template validation (Meta spec)
 │   ├── template_library.py  # Template library management
 │   ├── media_eum.py         # Media upload/download via EUM + S3
-│   ├── queries.py           # DynamoDB query handlers
 │   ├── marketing.py         # Campaign management
 │   ├── payments.py          # Payment message handlers
 │   ├── payment_config.py    # Payment config (India: WECARE-DIGITAL, ManishAgarwal)
+│   ├── refunds.py           # Refund handlers
 │   ├── business_profile.py  # Business profile (local + manual apply)
 │   ├── welcome_menu.py      # Welcome + Interactive List Menu
 │   ├── notifications.py     # Email notification handlers
 │   ├── webhooks.py          # Event processing
+│   ├── webhook_security.py  # Webhook security
 │   ├── event_destinations.py# AWS EUM event destinations
 │   ├── analytics.py         # Analytics handlers
 │   ├── catalogs.py          # Product catalog handlers
@@ -49,9 +53,7 @@ base.wecare.digital-whatsapp/
 │   ├── address_messages.py  # Address collection
 │   ├── throughput.py        # Rate limiting (token bucket)
 │   ├── retry.py             # Retry failed messages
-│   ├── config.py            # Configuration handlers
 │   ├── extended.py          # Extended handler registry
-│   ├── refunds.py           # Refund handlers
 │   └── s3_paths.py          # S3 path utilities
 ├── src/
 │   ├── runtime/             # Core dispatch layer (§4)
@@ -114,7 +116,7 @@ base.wecare.digital-whatsapp/
 ## Key Components
 
 ### 1. Handler Architecture (§3-4)
-- **167+ handlers** across 27 modules
+- **201+ handlers** across 31 modules
 - Action-based routing: `{"action": "send_text", ...}`
 - Single dispatcher with handler registry
 - Shared dependency injection (Deps)
@@ -142,7 +144,7 @@ base.wecare.digital-whatsapp/
 
 ### 4. Bedrock Integration (§12)
 - **Agent:** base-wecare-digital-whatsapp (ap-south-1)
-- **Model:** apac.anthropic.claude-3-5-sonnet-20241022-v2:0
+- **Model:** anthropic.claude-3-haiku-20240307-v1:0
 - **KB:** base-wecare-wa-kb (OpenSearch Serverless)
 - **Data Source:** Web crawler (https://wecare.digital, HOST_ONLY)
 - **BDA:** Document/audio/video processing
@@ -202,7 +204,7 @@ WhatsApp → AWS EUM → SNS → SQS → Lambda (inbound)
 | BEDROCK_REGION | Bedrock region | ap-south-1 |
 | BEDROCK_AGENT_ID | Bedrock Agent ID | (from setup) |
 | BEDROCK_KB_ID | Knowledge Base ID | (from setup) |
-| BEDROCK_MODEL_ID | Model inference profile | apac.anthropic.claude-3-5-sonnet-20241022-v2:0 |
+| BEDROCK_MODEL_ID | Model inference profile | anthropic.claude-3-haiku-20240307-v1:0 |
 | AUTO_REPLY_ENABLED | Enable auto-reply | false |
 | AUTO_REPLY_BEDROCK_ENABLED | Enable AI auto-reply | false |
 | AUTO_WELCOME_ENABLED | Enable auto-welcome | false |

@@ -93,7 +93,7 @@ class StrandsBedrockAgent:
         self.region = region or os.environ.get("BEDROCK_REGION", "ap-south-1")
         self.model_id = model_id or os.environ.get(
             "BEDROCK_MODEL_ID", 
-            "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+            "anthropic.claude-3-haiku-20240307-v1:0"
         )
         
         self._agent = None
@@ -248,8 +248,8 @@ class StrandsBedrockAgent:
         import boto3
         from botocore.exceptions import ClientError
         
-        # Use Claude 3.5 Sonnet via APAC inference profile for vision
-        vision_model = "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        # Use Claude 3 Haiku for vision
+        vision_model = "anthropic.claude-3-haiku-20240307-v1:0"
         
         try:
             client = boto3.client("bedrock-runtime", region_name=self.region)

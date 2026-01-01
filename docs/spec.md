@@ -108,8 +108,22 @@ These docs define message formats, template rules, and webhook/event semantics.
 - [get-whatsapp-message-media CLI](https://docs.aws.amazon.com/cli/latest/reference/socialmessaging/get-whatsapp-message-media.html)
 - [post-whatsapp-message-media CLI](https://docs.aws.amazon.com/cli/latest/reference/socialmessaging/post-whatsapp-message-media.html)
 
+### Automation & CLI
+- [WhatsApp Automation Overview](https://docs.aws.amazon.com/social-messaging/latest/userguide/whatsapp-automation.html)
+
 ### Quotas
 - [Service Quotas](https://docs.aws.amazon.com/social-messaging/latest/userguide/quotas.html)
+
+---
+
+## 7. AWS Lambda (Durable Functions)
+
+> **Note:** Durable Lambda is NOT used for SQS ingestion due to 15-minute ESM cap.
+
+- [Durable Functions Overview](https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html)
+- [Durable Functions Runtimes](https://docs.aws.amazon.com/lambda/latest/dg/durable-functions-runtimes.html)
+- [Durable Functions Limits](https://docs.aws.amazon.com/lambda/latest/dg/durable-functions-limits.html)
+- [Durable Functions Regions](https://docs.aws.amazon.com/lambda/latest/dg/durable-functions-regions.html)
 
 ---
 

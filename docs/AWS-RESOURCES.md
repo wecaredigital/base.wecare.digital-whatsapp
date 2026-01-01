@@ -2,7 +2,27 @@
 
 **Account ID:** `010526260063`  
 **Region:** `ap-south-1` (Mumbai)  
-**Last Updated:** 2025-12-31
+**Last Updated:** 2026-01-01  
+**Timezone:** IST (Asia/Kolkata)
+
+**CORS:** All APIs and Lambda Function URLs are configured with `AllowOrigins=*` (allow all domains)
+
+---
+
+## 0. Unified Logging
+
+| Property | Value |
+|----------|-------|
+| Log Group | `/wecare-digital/all` |
+| Retention | 7 days |
+| Format | JSON |
+| Timezone | IST (TZ=Asia/Kolkata on all Lambdas) |
+
+All resources log to this single CloudWatch log group:
+- Lambda functions (4)
+- Bedrock model invocations
+- API Gateway access logs
+- SNS delivery status
 
 ---
 
@@ -15,6 +35,8 @@
 | Runtime | Python 3.12 |
 | Function URL | `https://tovlswqncgn624kl6hxbyj65qe0hiizw.lambda-url.ap-south-1.on.aws/` |
 | API Gateway | `https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com/api` |
+| Log Group | `/wecare-digital/all` |
+| Timezone | `Asia/Kolkata` (IST) |
 
 **Environment Variables:**
 | Variable | Value |
@@ -34,7 +56,7 @@
 | EMAIL_NOTIFICATION_ENABLED | `true` |
 | EMAIL_SNS_TOPIC_ARN | `arn:aws:sns:ap-south-1:010526260063:base-wecare-digital` |
 | BEDROCK_REGION | `ap-south-1` |
-| BEDROCK_MODEL_ID | `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` |
+| BEDROCK_MODEL_ID | `amazon.nova-2-lite-v1:0` |
 | BEDROCK_AGENT_ID | `UFVSBWGCIU` |
 | BEDROCK_AGENT_ALIAS_ID | `IDEFJTWLLK` |
 | BEDROCK_KB_ID | `NVF0OLULMG` |
@@ -69,12 +91,36 @@
 |----------|-------|
 | MESSAGES_TABLE_NAME | `base-wecare-digital-whatsapp` |
 | MEDIA_BUCKET | `s3://dev.wecare.digital/Bedrock/` |
+| BEDROCK_S3_PREFIX | `Bedrock/agent/` |
 | BEDROCK_REGION | `ap-south-1` |
-| BEDROCK_MODEL_ID | `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` |
+| BEDROCK_MODEL_ID | `amazon.nova-2-lite-v1:0` |
 | BEDROCK_AGENT_ID | `UFVSBWGCIU` |
 | BEDROCK_AGENT_ALIAS_ID | `IDEFJTWLLK` |
 | BEDROCK_KB_ID | `NVF0OLULMG` |
 | AUTO_REPLY_BEDROCK_ENABLED | `false` |
+
+### 1.4 Agent Core API - `base-wecare-digital-whatsapp-agent-core`
+| Property | Value |
+|----------|-------|
+| ARN | `arn:aws:lambda:ap-south-1:010526260063:function:base-wecare-digital-whatsapp-agent-core` |
+| Runtime | Python 3.12 |
+| API Gateway | `https://3gxxxzll3e.execute-api.ap-south-1.amazonaws.com` |
+| Role | `base-wecare-digital-whatsapp-full-access-role` |
+
+**Environment Variables:**
+| Variable | Value |
+|----------|-------|
+| MESSAGES_TABLE_NAME | `base-wecare-digital-whatsapp` |
+| MESSAGES_PK_NAME | `pk` |
+| MEDIA_BUCKET | `dev.wecare.digital` |
+| BEDROCK_S3_PREFIX | `Bedrock/agent-core/` |
+| BEDROCK_REGION | `ap-south-1` |
+| BEDROCK_MODEL_ID | `amazon.nova-2-lite-v1:0` |
+| BEDROCK_AGENT_ID | `UFVSBWGCIU` |
+| BEDROCK_AGENT_ALIAS_ID | `IDEFJTWLLK` |
+| BEDROCK_KB_ID | `NVF0OLULMG` |
+| ALLOWED_ORIGINS | `*` |
+| LOG_LEVEL | `INFO` |
 
 ---
 
@@ -125,19 +171,25 @@ s3://dev.wecare.digital/
 │       ├── wecare/
 │       └── manish/
 ├── SES/                         ← Email Notifier Lambda
-└── Bedrock/                     ← Bedrock Worker Lambda
-    ├── AWSLogs/
-    ├── agents/
-    ├── kb/
-    └── logs/
+└── Bedrock/                     ← All Bedrock resources
+    ├── agent/                   ← Bedrock Worker Lambda data
+    ├── agent-core/              ← AgentCore Runtime + Agent Core Lambda
+    │   └── wecareinternalagent_Agent/  ← AgentCore deployment packages
+    ├── kb/                      ← Knowledge Base documents (future S3 data source)
+    └── logs/                    ← Bedrock invocation logs
 ```
 
-**Folder → Lambda Mapping:**
-| S3 Path | Lambda | Purpose |
-|---------|--------|---------|
-| `s3://dev.wecare.digital/WhatsApp/` | Main Lambda | WhatsApp media storage |
-| `s3://dev.wecare.digital/SES/` | Email Notifier | SES email attachments |
-| `s3://dev.wecare.digital/Bedrock/` | Bedrock Worker | Bedrock agent/KB data |
+**Folder → Resource Mapping:**
+| S3 Path | Resource | IAM Role | Purpose |
+|---------|----------|----------|---------|
+| `s3://dev.wecare.digital/WhatsApp/` | Main Lambda | `full-access-role` | WhatsApp media storage |
+| `s3://dev.wecare.digital/SES/` | Email Notifier Lambda | `full-access-role` | SES email attachments |
+| `s3://dev.wecare.digital/Bedrock/agent/` | Bedrock Worker Lambda | `full-access-role` | Agent processing data |
+| `s3://dev.wecare.digital/Bedrock/agent-core/` | Agent Core Lambda + AgentCore Runtime | `full-access-role` | Frontend uploads + AgentCore deployments |
+| `s3://dev.wecare.digital/Bedrock/kb/` | Knowledge Base | `full-access-role` | Future S3 data source (currently uses Web Crawler) |
+| `s3://dev.wecare.digital/Bedrock/logs/` | All Bedrock | `full-access-role` | Invocation logs |
+
+**Note:** All resources use `base-wecare-digital-whatsapp-full-access-role` for IAM permissions.
 
 ---
 
@@ -204,13 +256,40 @@ s3://dev.wecare.digital/
 
 ## 7. Amazon Bedrock
 
-### Agent: `base-wecare-digital-whatsapp`
+### Agent: `base-wecare-digital-whatsapp` (Customer-Facing)
 | Property | Value |
 |----------|-------|
 | Agent ID | `UFVSBWGCIU` |
 | Agent Alias ID | `IDEFJTWLLK` |
 | Status | `PREPARED` |
-| Model | `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` |
+| Model | `amazon.nova-2-lite-v1:0` |
+| Purpose | Customer WhatsApp interactions via AWS EUM |
+
+### AgentCore: `wecareinternalagent_Agent` (Internal/Amplify)
+| Property | Value |
+|----------|-------|
+| Agent ARN | `arn:aws:bedrock-agentcore:ap-south-1:010526260063:runtime/wecareinternalagent_Agent-9bq7z65aEP` |
+| Endpoint | `DEFAULT (READY)` |
+| Model | `amazon.nova-2-lite-v1:0` |
+| Purpose | Internal staff operations via Amplify dashboard |
+| Deployment | Direct Code Deploy |
+| Logs | `/aws/bedrock-agentcore/runtimes/wecareinternalagent_Agent-9bq7z65aEP-DEFAULT` |
+| Dashboard | [GenAI Observability](https://console.aws.amazon.com/cloudwatch/home?region=ap-south-1#gen-ai-observability/agent-core) |
+
+**AgentCore CLI Commands:**
+```bash
+# Check status
+agentcore status
+
+# Invoke agent
+agentcore invoke '{"prompt": "Hello"}'
+
+# Deploy updates
+agentcore deploy --auto-update-on-conflict
+
+# View logs
+aws logs tail /aws/bedrock-agentcore/runtimes/wecareinternalagent_Agent-9bq7z65aEP-DEFAULT --follow
+```
 
 ### Knowledge Base: `base-wecare-wa-kb`
 | Property | Value |
@@ -221,31 +300,132 @@ s3://dev.wecare.digital/
 
 ---
 
-## 8. IAM Role
+## 8. IAM Roles
 
-### Role: `base-wecare-digital-whatsapp-full-access-role`
+### Role 1: `base-wecare-digital-whatsapp-full-access-role` (PRIMARY)
 | Property | Value |
 |----------|-------|
 | ARN | `arn:aws:iam::010526260063:role/base-wecare-digital-whatsapp-full-access-role` |
+| Used By | **ALL resources** (see table below) |
 
-**Permissions:**
-- DynamoDB full access to `base-wecare-digital-whatsapp` table
-- S3 full access to `dev.wecare.digital` bucket
-- SQS full access to all project queues
-- SNS publish to `base-wecare-digital` topic
-- SES send email
-- Bedrock invoke agent/model
-- Social Messaging (EUM) send/receive
-- CloudWatch Logs
+**Resources Using This Role:**
+| Resource | Type | Verified |
+|----------|------|----------|
+| `base-wecare-digital-whatsapp` | Main Lambda | ✅ |
+| `base-wecare-digital-whatsapp-email-notifier` | Email Notifier Lambda | ✅ |
+| `base-wecare-digital-whatsapp-bedrock-worker` | Bedrock Worker Lambda | ✅ |
+| `base-wecare-digital-whatsapp-agent-core` | Agent Core Lambda | ✅ |
+| `UFVSBWGCIU` | Bedrock Agent | ✅ |
+| `NVF0OLULMG` | Knowledge Base | ✅ |
+| `wecareinternalagent_Agent` | AgentCore Runtime | ✅ |
+
+**Trust Policy (services that can assume this role):**
+- `lambda.amazonaws.com`
+- `bedrock.amazonaws.com`
+- `bedrock-agentcore.amazonaws.com`
+- `states.amazonaws.com`
+- `events.amazonaws.com`
+- `apigateway.amazonaws.com`
+- `sqs.amazonaws.com`
+- `sns.amazonaws.com`
+- `s3.amazonaws.com`
+
+**Full Access Permissions (all resources `*`):**
+| Service | Actions |
+|---------|---------|
+| DynamoDB | `dynamodb:*` |
+| S3 | `s3:*` |
+| Social Messaging (EUM) | `social-messaging:*` |
+| SNS | `sns:*` |
+| SES | `ses:*` |
+| SQS | `sqs:*` |
+| EventBridge | `events:*` |
+| Step Functions | `states:*` |
+| Lambda | `lambda:*` |
+| Bedrock | `bedrock:*`, `bedrock-agent:*`, `bedrock-agent-runtime:*` |
+| OpenSearch Serverless | `aoss:*` |
+| CloudWatch | `logs:*`, `cloudwatch:*` |
+| IAM | `iam:*` |
+| KMS | `kms:*` |
+| Secrets Manager | `secretsmanager:*` |
+| API Gateway | `apigateway:*` |
+| X-Ray | `xray:*` |
+
+### Role 2 (Deleted): `base-wecare-digital-whatsapp-bedrock-agent-role`
+- **Status:** DELETED (was unused, Bedrock Agent uses full-access-role)
+
+### Role 3 (Deleted): `base-wecare-digital-whatsapp-bedrock-kb-role`
+- **Status:** DELETED (was unused, KB uses full-access-role)
 
 ---
 
 ## 9. API Endpoints
 
-| Endpoint | URL |
-|----------|-----|
+**CORS Configuration:** All APIs configured with `AllowOrigins=*` (allow all domains)
+
+### Main API (WhatsApp Handlers)
+| Property | Value |
+|----------|-------|
 | API Gateway | `https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com/api` |
+| API ID | `o0wjog0nl4` |
 | Lambda Function URL | `https://tovlswqncgn624kl6hxbyj65qe0hiizw.lambda-url.ap-south-1.on.aws/` |
+| CORS | `AllowOrigins=*`, `AllowMethods=*`, `AllowHeaders=*` |
+
+### Agent Core API (Amplify/Frontend)
+| Property | Value |
+|----------|-------|
+| API Gateway | `https://3gxxxzll3e.execute-api.ap-south-1.amazonaws.com` |
+| API ID | `3gxxxzll3e` |
+| CORS | `AllowOrigins=*`, `AllowMethods=GET,POST,DELETE,OPTIONS`, `AllowHeaders=Content-Type,Authorization,X-Tenant-Id,X-User-Id` |
+
+**Agent Core API Routes:**
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/chat` | Chat with AI (session-based) |
+| POST | `/api/invoke-agent` | Direct Bedrock Agent invocation |
+| POST | `/api/query-kb` | Query Knowledge Base |
+| GET | `/api/sessions` | List sessions |
+| GET | `/api/sessions/{sessionId}` | Get session details |
+| GET | `/api/sessions/{sessionId}/history` | Get chat history |
+| DELETE | `/api/sessions/{sessionId}` | Delete session |
+| GET | `/api/health` | Health check |
+
+**Usage from Any Frontend (CORS enabled for all origins):**
+```javascript
+const API_ENDPOINT = 'https://3gxxxzll3e.execute-api.ap-south-1.amazonaws.com';
+
+// Chat with AI
+const response = await fetch(`${API_ENDPOINT}/api/chat`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Tenant-Id': '1347766229904230',
+    'X-User-Id': 'user@example.com'
+  },
+  body: JSON.stringify({ message: 'What services do you offer?' })
+});
+
+const data = await response.json();
+console.log(data.response);
+console.log(data.suggestedActions);
+```
+
+**Main API Usage:**
+```javascript
+const MAIN_API = 'https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com/api';
+
+// Send WhatsApp message
+const response = await fetch(MAIN_API, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: 'send_text',
+    metaWabaId: '1347766229904230',
+    to: '+919876543210',
+    text: 'Hello from WECARE.DIGITAL!'
+  })
+});
+```
 
 ---
 

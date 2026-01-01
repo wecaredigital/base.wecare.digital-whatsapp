@@ -1,0 +1,74 @@
+{
+    "menuId": "support",
+    "buttonText": "Support",
+    "bodyText": "Need help or info? Choose below:",
+    "sections": [
+        {
+            "title": "HELP & INFO",
+            "rows": [
+                {
+                    "rowId": "sup_faq",
+                    "title": "FAQ",
+                    "description": "Quick answers + portal links.",
+                    "actionType": "open_url",
+                    "actionValue": "https://www.wecare.digital/faq",
+                    "answerText": "FAQ ❓\nQuick answers to common questions.\nhttps://www.wecare.digital/faq"
+                },
+                {
+                    "rowId": "sup_hours",
+                    "title": "Business Hours",
+                    "description": "Mon–Fri, 9am–6pm IST.",
+                    "actionType": "send_text",
+                    "actionValue": "Business Hours 🕐\nMonday–Friday, 9:00am–6:00pm IST.\nhttps://www.wecare.digital/faq"
+                },
+                {
+                    "rowId": "sup_contact",
+                    "title": "Contact Us",
+                    "description": "Phone + email + address.",
+                    "actionType": "open_url",
+                    "actionValue": "https://www.wecare.digital/contact",
+                    "answerText": "Contact WECARE.DIGITAL ☎️\nCall or email us (details on the page).\nhttps://www.wecare.digital/contact"
+                },
+                {
+                    "rowId": "sup_app",
+                    "title": "Download App",
+                    "description": "Track, book, upload & pay.",
+                    "actionType": "open_url",
+                    "actionValue": "https://www.wecare.digital/one",
+                    "answerText": "WECARE App 📱\nTrack, book, upload, and pay on the go.\nhttps://www.wecare.digital/one"
+                },
+                {
+                    "rowId": "sup_gift",
+                    "title": "Gift Card",
+                    "description": "Buy a WECARE gift card.",
+                    "actionType": "open_url",
+                    "actionValue": "https://www.wecare.digital/gift-card",
+                    "answerText": "Gift Card 🎁\nSend a WECARE.DIGITAL gift card (any amount).\nhttps://www.wecare.digital/gift-card"
+                },
+                {
+                    "rowId": "sup_careers",
+                    "title": "Careers + Culture",
+                    "description": "Join the team.",
+                    "actionType": "open_url",
+                    "actionValue": "https://www.wecare.digital/careers-plus-culture",
+                    "answerText": "Careers + Culture 💼\nJoin the WECARE.DIGITAL team.\nhttps://www.wecare.digital/careers-plus-culture"
+                },
+                {
+                    "rowId": "sup_legal",
+                    "title": "Legal Stuff",
+                    "description": "Policies + legal info.",
+                    "actionType": "open_url",
+                    "actionValue": "https://www.wecare.digital/legal-stuff",
+                    "answerText": "Legal Stuff 📜\nPolicies, terms, and legal information.\nhttps://www.wecare.digital/legal-stuff"
+                },
+                {
+                    "rowId": "back_main",
+                    "title": "⬅ Back",
+                    "description": "Return to Main Menu.",
+                    "actionType": "invoke_action",
+                    "actionValue": "send_menu_main"
+                }
+            ]
+        }
+    ]
+}

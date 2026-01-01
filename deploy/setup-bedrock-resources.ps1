@@ -39,8 +39,8 @@ $KB_ROLE_NAME = "base-wecare-digital-whatsapp-bedrock-kb-role"
 $LAMBDA_FUNCTION_NAME = "base-wecare-digital-whatsapp"
 $DYNAMODB_TABLE_NAME = "base-wecare-digital-whatsapp"
 
-# Model configuration (ap-south-1 via APAC inference profile)
-$FOUNDATION_MODEL = "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+# Model configuration (ap-south-1)
+$FOUNDATION_MODEL = "anthropic.claude-3-haiku-20240307-v1:0"
 $EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0"
 
 # Knowledge Base - Web Crawler config

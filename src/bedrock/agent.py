@@ -159,32 +159,33 @@ class BedrockAgent:
         session_id: str,
     ) -> AgentResponse:
         """
-        Invoke Claude directly without Agent.
-        Uses Claude 3 Sonnet for text processing.
+        Invoke model directly without Agent.
+        Uses Amazon Nova 2 Lite for text processing.
         """
-        # Use Claude 3.5 Sonnet via APAC inference profile
-        model_id = os.environ.get("BEDROCK_MODEL_ID", "apac.anthropic.claude-3-5-sonnet-20241022-v2:0")
+        # Use Amazon Nova 2 Lite (AWS first-party, no subscription needed)
+        model_id = os.environ.get("BEDROCK_MODEL_ID", "amazon.nova-2-lite-v1:0")
         
         try:
+            # Amazon Nova uses Converse API format
             messages = [
                 {
                     "role": "user",
-                    "content": input_text,
+                    "content": [{"text": input_text}],
                 }
             ]
             
             response = self.runtime_client.invoke_model(
                 modelId=model_id,
                 body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 4096,
                     "messages": messages,
-                    "system": self._get_system_prompt(),
+                    "system": [{"text": self._get_system_prompt()}],
+                    "inferenceConfig": {"maxTokens": 4096, "temperature": 0.7},
                 }),
             )
             
             result = json.loads(response["body"].read())
-            completion = result.get("content", [{}])[0].get("text", "")
+            # Nova response format
+            completion = result.get("output", {}).get("message", {}).get("content", [{}])[0].get("text", "")
             
             return AgentResponse(
                 session_id=session_id,
@@ -207,7 +208,7 @@ class BedrockAgent:
         session_id: str = None,
     ) -> AgentResponse:
         """
-        Invoke with image input (uses Claude 3.7 Sonnet directly).
+        Invoke with image input (uses Amazon Nova 2 Lite).
         
         Args:
             input_text: User message/question about the image
@@ -220,30 +221,25 @@ class BedrockAgent:
         """
         session_id = session_id or self._generate_session_id()
         
-        # Use Claude 3.5 Sonnet via APAC inference profile for image understanding
-        model_id = "apac.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        # Use Amazon Nova 2 Lite for image understanding (supports multimodal)
+        model_id = "amazon.nova-2-lite-v1:0"
         
         try:
             # Encode image
             image_base64 = base64.b64encode(image_bytes).decode("utf-8")
             
-            # Build message with image
+            # Build message with image (Nova format)
             messages = [
                 {
                     "role": "user",
                     "content": [
                         {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_base64,
+                            "image": {
+                                "format": media_type.split("/")[1],  # jpeg, png, etc.
+                                "source": {"bytes": image_base64},
                             },
                         },
-                        {
-                            "type": "text",
-                            "text": input_text,
-                        },
+                        {"text": input_text},
                     ],
                 }
             ]
@@ -251,15 +247,15 @@ class BedrockAgent:
             response = self.runtime_client.invoke_model(
                 modelId=model_id,
                 body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 4096,
                     "messages": messages,
-                    "system": self._get_system_prompt(),
+                    "system": [{"text": self._get_system_prompt()}],
+                    "inferenceConfig": {"maxTokens": 4096, "temperature": 0.7},
                 }),
             )
             
             result = json.loads(response["body"].read())
-            completion = result.get("content", [{}])[0].get("text", "")
+            # Nova response format
+            completion = result.get("output", {}).get("message", {}).get("content", [{}])[0].get("text", "")
             
             return AgentResponse(
                 session_id=session_id,

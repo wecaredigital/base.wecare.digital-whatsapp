@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": [
+          "lambda.amazonaws.com",
+          "states.amazonaws.com",
+          "events.amazonaws.com",
+          "apigateway.amazonaws.com",
+          "sqs.amazonaws.com",
+          "sns.amazonaws.com",
+          "s3.amazonaws.com",
+          "bedrock.amazonaws.com",
+          "bedrock-agentcore.amazonaws.com"
+        ]
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
