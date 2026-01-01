@@ -214,7 +214,7 @@ def execute_retry(retry_pk: str) -> Dict[str, Any]:
     try:
         response = social().send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
-            metaApiVersion=META_API_VERSION,
+            metaApiVersion=str(META_API_VERSION),
             message=json.dumps(payload).encode("utf-8"),
         )
         

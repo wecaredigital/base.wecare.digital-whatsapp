@@ -41,11 +41,15 @@ Remove-Item deploy.zip -Force
 
 # Test
 Write-Host "Testing..."
-aws lambda invoke --function-name "${FUNCTION_NAME}:live" --region $REGION --payload '{"action":"get_config"}' --cli-binary-format raw-in-base64-out test_out.json 2>$null
-$result = Get-Content test_out.json | ConvertFrom-Json
-if ($result.config.welcomeEnabled -ne $null) {
-    Write-Host "SUCCESS: welcomeEnabled = $($result.config.welcomeEnabled)"
+$testResult = aws lambda invoke --function-name "${FUNCTION_NAME}:live" --region $REGION --payload '{"action":"get_config"}' --cli-binary-format raw-in-base64-out test_out.json 2>&1
+if (Test-Path test_out.json) {
+    $result = Get-Content test_out.json | ConvertFrom-Json
+    if ($result.config.welcomeEnabled -ne $null) {
+        Write-Host "SUCCESS: welcomeEnabled = $($result.config.welcomeEnabled)"
+    } else {
+        Write-Host "WARNING: welcomeEnabled not found in config"
+    }
+    Remove-Item test_out.json -Force -ErrorAction SilentlyContinue
 } else {
-    Write-Host "WARNING: welcomeEnabled not found in config"
+    Write-Host "WARNING: Test invoke failed"
 }
-Remove-Item test_out.json -Force

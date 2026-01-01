@@ -43,7 +43,7 @@ def _send_whatsapp_message(phone_arn: str, payload: Dict[str, Any]) -> Dict[str,
     try:
         response = social().send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
-            metaApiVersion=META_API_VERSION,
+            metaApiVersion=str(META_API_VERSION),
             message=json.dumps(payload).encode("utf-8"),
         )
         return {"success": True, "messageId": response.get("messageId")}
