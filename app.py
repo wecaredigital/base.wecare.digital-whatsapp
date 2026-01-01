@@ -9,54 +9,195 @@ from typing import Any, Dict, List, Optional
 import boto3
 from botocore.exceptions import ClientError
 
+# =============================================================================
+# UNIFIED HANDLER SYSTEM
+# =============================================================================
+# Import the unified dispatcher for ALL handlers (core + extended)
+# This provides a single entry point for all action handling
+from handlers import unified_dispatch
+
 # ---------- Logger ----------
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# ---------- Clients (Lazy Initialization) ----------
+# =============================================================================
+# LAZY CLIENT INITIALIZATION (Import-safe pattern)
+# =============================================================================
+# Clients are created on first access, not at import time.
+# This allows the module to be imported without AWS credentials.
+# =============================================================================
 _clients: Dict[str, Any] = {}
 
+
 def _get_client(name: str, service: str = None):
+    """Lazy client initialization with caching."""
     if name not in _clients:
         _clients[name] = boto3.client(service or name)
     return _clients[name]
 
+
 def _get_resource(name: str, service: str = None):
+    """Lazy resource initialization with caching."""
     key = f"resource_{name}"
     if key not in _clients:
         _clients[key] = boto3.resource(service or name)
     return _clients[key]
 
-def ddb(): return _get_resource("dynamodb")
-def s3(): return _get_client("s3")
-def social(): return _get_client("socialmessaging")
-def sns(): return _get_client("sns")
-def ec2(): return _get_client("ec2")
-def iam(): return _get_client("iam")
 
-# ---------- ENV ----------
-MESSAGES_TABLE_NAME = os.environ["MESSAGES_TABLE_NAME"]
-MESSAGES_PK_NAME = os.environ["MESSAGES_PK_NAME"]
+# Client accessor functions (lazy-loaded)
+def get_ddb(): return _get_resource("dynamodb")
+def get_s3(): return _get_client("s3")
+def get_social(): return _get_client("socialmessaging")
+def get_sns(): return _get_client("sns")
+def get_ec2(): return _get_client("ec2")
+def get_iam(): return _get_client("iam")
 
-MEDIA_BUCKET = os.environ["MEDIA_BUCKET"]
-MEDIA_PREFIX = os.environ.get("MEDIA_PREFIX", "WhatsApp/")
 
-META_API_VERSION = os.environ.get("META_API_VERSION", "v20.0")
-AUTO_REPLY_ENABLED = os.environ.get("AUTO_REPLY_ENABLED", "false").lower() == "true"
-AUTO_REPLY_TEXT = os.environ.get("AUTO_REPLY_TEXT", "Thanks! We received your message.")
-ECHO_MEDIA_BACK = os.environ.get("ECHO_MEDIA_BACK", "true").lower() == "true"
+# Convenience aliases - call as functions: ddb(), s3(), social(), etc.
+def ddb(): return get_ddb()
+def s3(): return get_s3()
+def social(): return get_social()
+def sns(): return get_sns()
+def ec2(): return get_ec2()
+def iam(): return get_iam()
 
-FORWARD_ENABLED = os.environ.get("FORWARD_ENABLED", "false").lower() == "true"
-FORWARD_TO_WA_ID = os.environ.get("FORWARD_TO_WA_ID", "")
-FORWARD_DELETE_UPLOADED_MEDIA = os.environ.get("FORWARD_DELETE_UPLOADED_MEDIA", "false").lower() == "true"
 
-# Mark inbound messages as read (blue check marks)
-MARK_AS_READ_ENABLED = os.environ.get("MARK_AS_READ_ENABLED", "true").lower() == "true"
+# =============================================================================
+# LAZY ENVIRONMENT CONFIGURATION
+# =============================================================================
+_env_cache: Dict[str, Any] = {}
 
-# React to inbound messages with emoji
-# Supports per-message-type emojis via JSON config, or single emoji for all
-REACT_EMOJI_ENABLED = os.environ.get("REACT_EMOJI_ENABLED", "true").lower() == "true"
 
+def _get_env(key: str, default: str = "") -> str:
+    """Get environment variable with caching."""
+    if key not in _env_cache:
+        _env_cache[key] = os.environ.get(key, default)
+    return _env_cache[key]
+
+
+def _get_env_bool(key: str, default: bool = False) -> bool:
+    """Get boolean environment variable."""
+    return _get_env(key, str(default)).lower() == "true"
+
+
+def _get_env_json(key: str, default: dict = None) -> dict:
+    """Get JSON environment variable."""
+    cache_key = f"_json_{key}"
+    if cache_key not in _env_cache:
+        try:
+            _env_cache[cache_key] = json.loads(_get_env(key, "{}") or "{}")
+        except json.JSONDecodeError:
+            _env_cache[cache_key] = default or {}
+    return _env_cache[cache_key]
+
+
+# Environment variable accessors (lazy-loaded)
+def get_messages_table_name(): return _get_env("MESSAGES_TABLE_NAME", "base-wecare-digital-whatsapp")
+def get_messages_pk_name(): return _get_env("MESSAGES_PK_NAME", "pk")
+def get_media_bucket(): return _get_env("MEDIA_BUCKET", "dev.wecare.digital")
+def get_media_prefix(): return _get_env("MEDIA_PREFIX", "WhatsApp/")
+def get_meta_api_version(): return _get_env("META_API_VERSION", "v20.0")
+def get_auto_reply_enabled(): return _get_env_bool("AUTO_REPLY_ENABLED", False)
+def get_auto_reply_text(): return _get_env("AUTO_REPLY_TEXT", "Thanks! We received your message.")
+def get_echo_media_back(): return _get_env_bool("ECHO_MEDIA_BACK", True)
+def get_forward_enabled(): return _get_env_bool("FORWARD_ENABLED", False)
+def get_forward_to_wa_id(): return _get_env("FORWARD_TO_WA_ID", "")
+def get_forward_delete_uploaded_media(): return _get_env_bool("FORWARD_DELETE_UPLOADED_MEDIA", False)
+def get_mark_as_read_enabled(): return _get_env_bool("MARK_AS_READ_ENABLED", True)
+def get_react_emoji_enabled(): return _get_env_bool("REACT_EMOJI_ENABLED", True)
+def get_email_notification_enabled(): return _get_env_bool("EMAIL_NOTIFICATION_ENABLED", True)
+def get_email_sns_topic_arn(): return _get_env("EMAIL_SNS_TOPIC_ARN", "arn:aws:sns:ap-south-1:010526260063:base-wecare-digital")
+def get_waba_phone_map(): return _get_env_json("WABA_PHONE_MAP_JSON")
+def get_welcome_enabled(): return _get_env_bool("WELCOME_ENABLED", True)
+def get_menu_on_keywords_enabled(): return _get_env_bool("MENU_ON_KEYWORDS_ENABLED", True)
+def get_bedrock_auto_reply_enabled(): return _get_env_bool("BEDROCK_AUTO_REPLY_ENABLED", False)
+
+
+# =============================================================================
+# MODULE-LEVEL COMPATIBILITY VARIABLES
+# =============================================================================
+# These are simple string/bool values that are initialized on first access.
+# The lazy initialization pattern ensures the module can be imported without AWS credentials.
+# =============================================================================
+class _LazyEnvVar:
+    """Lazy environment variable accessor for backward compatibility."""
+    def __init__(self, getter):
+        self._getter = getter
+        self._value = None
+        self._initialized = False
+    
+    def _ensure_init(self):
+        if not self._initialized:
+            self._value = self._getter()
+            self._initialized = True
+        return self._value
+    
+    def __str__(self):
+        return str(self._ensure_init())
+    
+    def __repr__(self):
+        return repr(self._ensure_init())
+    
+    def __eq__(self, other):
+        return self._ensure_init() == other
+    
+    def __hash__(self):
+        return hash(self._ensure_init())
+    
+    def __bool__(self):
+        return bool(self._ensure_init())
+    
+    def __add__(self, other):
+        return str(self._ensure_init()) + other
+    
+    def __radd__(self, other):
+        return other + str(self._ensure_init())
+    
+    def get(self, key, default=None):
+        """Support dict-like access for WABA_PHONE_MAP."""
+        val = self._ensure_init()
+        if isinstance(val, dict):
+            return val.get(key, default)
+        return default
+
+
+# For backward compatibility, these can be used directly in string contexts
+MESSAGES_TABLE_NAME = _LazyEnvVar(get_messages_table_name)
+MESSAGES_PK_NAME = _LazyEnvVar(get_messages_pk_name)
+MEDIA_BUCKET = _LazyEnvVar(get_media_bucket)
+MEDIA_PREFIX = _LazyEnvVar(get_media_prefix)
+META_API_VERSION = _LazyEnvVar(get_meta_api_version)
+AUTO_REPLY_ENABLED = _LazyEnvVar(get_auto_reply_enabled)
+AUTO_REPLY_TEXT = _LazyEnvVar(get_auto_reply_text)
+ECHO_MEDIA_BACK = _LazyEnvVar(get_echo_media_back)
+FORWARD_ENABLED = _LazyEnvVar(get_forward_enabled)
+FORWARD_TO_WA_ID = _LazyEnvVar(get_forward_to_wa_id)
+FORWARD_DELETE_UPLOADED_MEDIA = _LazyEnvVar(get_forward_delete_uploaded_media)
+MARK_AS_READ_ENABLED = _LazyEnvVar(get_mark_as_read_enabled)
+REACT_EMOJI_ENABLED = _LazyEnvVar(get_react_emoji_enabled)
+EMAIL_NOTIFICATION_ENABLED = _LazyEnvVar(get_email_notification_enabled)
+EMAIL_SNS_TOPIC_ARN = _LazyEnvVar(get_email_sns_topic_arn)
+WABA_PHONE_MAP = _LazyEnvVar(get_waba_phone_map)
+WELCOME_ENABLED = _LazyEnvVar(get_welcome_enabled)
+MENU_ON_KEYWORDS_ENABLED = _LazyEnvVar(get_menu_on_keywords_enabled)
+BEDROCK_AUTO_REPLY_ENABLED = _LazyEnvVar(get_bedrock_auto_reply_enabled)
+
+
+# Table accessor with caching
+_table = None
+def get_table():
+    global _table
+    if _table is None:
+        _table = get_ddb().Table(get_messages_table_name())
+    return _table
+
+
+def table(): return get_table()
+
+
+# =============================================================================
+# REACTION EMOJI CONFIGURATION
+# =============================================================================
 # Default emoji map by message type - can be overridden via REACT_EMOJI_MAP_JSON env var
 # Supported emojis: 👍 ❤️ 😂 😮 😢 🙏 🔥 🎉 ✅ 👋 💯 👀 (or any Unicode emoji)
 DEFAULT_REACT_EMOJI_MAP = {
@@ -70,34 +211,75 @@ DEFAULT_REACT_EMOJI_MAP = {
     "contacts": "👋",  # Wave for contacts
     "default": "👍",   # Default fallback
 }
-# Override with env var: REACT_EMOJI_MAP_JSON='{"text":"🙏","image":"💯","default":"👍"}'
-REACT_EMOJI_MAP = json.loads(os.environ.get("REACT_EMOJI_MAP_JSON", "{}") or "{}")
-if not REACT_EMOJI_MAP:
-    REACT_EMOJI_MAP = DEFAULT_REACT_EMOJI_MAP
+
+
+def get_react_emoji_map() -> Dict[str, str]:
+    """Get reaction emoji map from env or default."""
+    custom_map = _get_env_json("REACT_EMOJI_MAP_JSON")
+    return custom_map if custom_map else DEFAULT_REACT_EMOJI_MAP
 
 
 def get_reaction_emoji(message_type: str) -> str:
     """Get the appropriate reaction emoji for a message type."""
-    return REACT_EMOJI_MAP.get(message_type, REACT_EMOJI_MAP.get("default", "👍"))
+    emoji_map = get_react_emoji_map()
+    return emoji_map.get(message_type, emoji_map.get("default", "👍"))
 
-# SNS Email notification
-EMAIL_NOTIFICATION_ENABLED = os.environ.get("EMAIL_NOTIFICATION_ENABLED", "true").lower() == "true"
-EMAIL_SNS_TOPIC_ARN = os.environ.get("EMAIL_SNS_TOPIC_ARN", "arn:aws:sns:ap-south-1:010526260063:base-wecare-digital")
 
-# Welcome Menu & Bedrock config
-WELCOME_ENABLED = os.environ.get("WELCOME_ENABLED", "true").lower() == "true"
-MENU_ON_KEYWORDS_ENABLED = os.environ.get("MENU_ON_KEYWORDS_ENABLED", "true").lower() == "true"
-BEDROCK_AUTO_REPLY_ENABLED = os.environ.get("BEDROCK_AUTO_REPLY_ENABLED", "false").lower() == "true"
+# =============================================================================
+# WABA FOLDER MAPPING FOR S3 MEDIA PATHS
+# =============================================================================
+# S3 Structure:
+#   s3://dev.wecare.digital/WhatsApp/download/{waba_folder}/{filename}_{uuid}.{ext}  (inbound)
+#   s3://dev.wecare.digital/WhatsApp/upload/{waba_folder}/{filename}_{uuid}.{ext}    (outbound)
+# =============================================================================
+WABA_FOLDER_MAP = {
+    "1347766229904230": "wecare",   # WECARE.DIGITAL
+    "1390647332755815": "manish",   # Manish Agarwal
+}
 
-WABA_PHONE_MAP = json.loads(os.environ.get("WABA_PHONE_MAP_JSON", "{}") or "{}")
 
-# Table accessor (lazy)
-_table = None
-def table():
-    global _table
-    if _table is None:
-        _table = ddb().Table(MESSAGES_TABLE_NAME)
-    return _table
+def get_waba_folder(meta_waba_id: str) -> str:
+    """Get folder name for WABA. Returns mapped name or sanitized fallback."""
+    if meta_waba_id in WABA_FOLDER_MAP:
+        return WABA_FOLDER_MAP[meta_waba_id]
+    # Fallback to last 6 chars of WABA ID
+    return f"waba_{meta_waba_id[-6:]}" if meta_waba_id else "unknown"
+
+
+def generate_secure_filename(base_name: str = "file", mime_type: str = None) -> str:
+    """Generate secure filename with UUID to prevent URL guessing.
+    
+    Format: {base_name}_{uuid}.{ext}
+    Example: image_a1b2c3d4e5f6.jpg
+    """
+    import uuid
+    unique_id = uuid.uuid4().hex[:12]  # 12 char hex = 48 bits of randomness
+    ext = mime_to_ext(mime_type) if mime_type else ""
+    if base_name:
+        # Sanitize base name - keep only alphanumeric, dash, underscore
+        safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in base_name)[:30]
+        return f"{safe_name}_{unique_id}{ext}"
+    return f"file_{unique_id}{ext}"
+
+
+def generate_download_s3_key(meta_waba_id: str, filename: str = "media", mime_type: str = None) -> str:
+    """Generate S3 key for downloading inbound media.
+    
+    Path: WhatsApp/download/{waba_folder}/{filename}_{uuid}.{ext}
+    """
+    waba_folder = get_waba_folder(meta_waba_id)
+    secure_filename = generate_secure_filename(filename, mime_type)
+    return f"{get_media_prefix()}download/{waba_folder}/{secure_filename}"
+
+
+def generate_upload_s3_key(meta_waba_id: str, filename: str = "media", mime_type: str = None) -> str:
+    """Generate S3 key for uploading outbound media.
+    
+    Path: WhatsApp/upload/{waba_folder}/{filename}_{uuid}.{ext}
+    """
+    waba_folder = get_waba_folder(meta_waba_id)
+    secure_filename = generate_secure_filename(filename, mime_type)
+    return f"{get_media_prefix()}upload/{waba_folder}/{secure_filename}"
 
 
 # ---------- Helpers ----------
@@ -105,12 +287,22 @@ def jdump(x: Any) -> str:
     return json.dumps(x, ensure_ascii=False, default=str)
 
 
-def api_response(data, status_code=None):
-    """Wrap response for API Gateway HTTP API compatibility."""
+def api_response(data: Dict[str, Any], status_code: int = None) -> Dict[str, Any]:
+    """Wrap response for API Gateway HTTP API compatibility.
+    
+    For HTTP API payload format 2.0, returns proper response format with:
+    - statusCode: HTTP status code
+    - headers: Content-Type header
+    - body: JSON string of the response data
+    """
+    # Extract statusCode from data if present, otherwise use provided or default to 200
     code = status_code or data.get("statusCode", 200)
+    
     return {
         "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+        },
         "body": json.dumps(data, ensure_ascii=False, default=str),
     }
 
@@ -264,6 +456,9 @@ def format_wa_number(wa_id: str) -> str:
     """Format WhatsApp number for AWS Social Messaging API calls.
     AWS Social Messaging API expects numbers WITH the + prefix.
     Example: +919903300044 (not 919903300044)
+    
+    Note: This is different from Meta's direct WhatsApp Cloud API which expects
+    numbers WITHOUT the + prefix. AWS Social Messaging handles the conversion.
     """
     if not wa_id:
         return ""
@@ -279,7 +474,7 @@ def generate_s3_presigned_url(bucket: str, key: str, expiry: int = 86400) -> str
     if not bucket or not key:
         return ""
     try:
-        return s3().generate_presigned_url(
+        return s3.generate_presigned_url(
             'get_object',
             Params={'Bucket': bucket, 'Key': key},
             ExpiresIn=expiry
@@ -306,6 +501,203 @@ def lookup_account_by_waba_meta_id(waba_meta_id: str) -> Optional[AccountInfo]:
         phone=x.get("phone", ""),
         meta_phone_number_id=x.get("meta_phone_number_id", ""),
     )
+
+
+# ---------- Template Component Helpers ----------
+def build_template_header_component(
+    header_type: str = "text",
+    text: str = "",
+    media_id: str = "",
+    media_link: str = "",
+    document_filename: str = "",
+) -> Dict[str, Any]:
+    """Build a header component for template messages.
+    
+    Args:
+        header_type: "text", "image", "video", or "document"
+        text: Text for text headers (can include {{1}} placeholders)
+        media_id: WhatsApp media ID for media headers
+        media_link: URL link for media headers (alternative to media_id)
+        document_filename: Filename for document headers
+    
+    Returns:
+        Header component dict ready for template components array
+    
+    Examples:
+        # Text header with variable
+        build_template_header_component("text", text="Order #{{1}}")
+        
+        # Image header with media ID
+        build_template_header_component("image", media_id="123456789")
+        
+        # Document header with link
+        build_template_header_component("document", media_link="https://example.com/doc.pdf", document_filename="Invoice.pdf")
+    """
+    component: Dict[str, Any] = {"type": "header", "parameters": []}
+    
+    if header_type == "text":
+        if text:
+            component["parameters"].append({"type": "text", "text": text})
+    elif header_type in ("image", "video", "document"):
+        param: Dict[str, Any] = {"type": header_type}
+        media_obj: Dict[str, Any] = {}
+        
+        if media_id:
+            media_obj["id"] = media_id
+        elif media_link:
+            media_obj["link"] = media_link
+        
+        if header_type == "document" and document_filename:
+            media_obj["filename"] = document_filename
+        
+        if media_obj:
+            param[header_type] = media_obj
+            component["parameters"].append(param)
+    
+    return component
+
+
+def build_template_body_component(parameters: List[str]) -> Dict[str, Any]:
+    """Build a body component for template messages.
+    
+    Args:
+        parameters: List of text values to replace {{1}}, {{2}}, etc.
+    
+    Returns:
+        Body component dict ready for template components array
+    
+    Example:
+        # For template body: "Hello {{1}}, your order {{2}} is ready"
+        build_template_body_component(["John", "ORD-12345"])
+    """
+    return {
+        "type": "body",
+        "parameters": [{"type": "text", "text": str(p)} for p in parameters]
+    }
+
+
+def build_template_button_component(
+    button_index: int,
+    button_type: str = "url",
+    url_suffix: str = "",
+    payload: str = "",
+    coupon_code: str = "",
+) -> Dict[str, Any]:
+    """Build a button component for template messages with dynamic URL support.
+    
+    Args:
+        button_index: 0-based index of the button in the template
+        button_type: "url" for dynamic URL, "quick_reply" for quick reply, "copy_code" for coupon
+        url_suffix: Dynamic suffix to append to the template's base URL (for url type)
+        payload: Payload for quick_reply buttons
+        coupon_code: Code for copy_code (coupon) buttons
+    
+    Returns:
+        Button component dict ready for template components array
+    
+    Examples:
+        # Dynamic URL button (template has: https://example.com/track/{{1}})
+        build_template_button_component(0, "url", url_suffix="ORD-12345")
+        
+        # Quick reply button
+        build_template_button_component(1, "quick_reply", payload="confirm_order")
+        
+        # Copy code (coupon) button
+        build_template_button_component(0, "copy_code", coupon_code="SAVE20")
+    """
+    component: Dict[str, Any] = {
+        "type": "button",
+        "sub_type": button_type,
+        "index": str(button_index),
+        "parameters": []
+    }
+    
+    if button_type == "url" and url_suffix:
+        component["parameters"].append({"type": "text", "text": url_suffix})
+    elif button_type == "quick_reply" and payload:
+        component["parameters"].append({"type": "payload", "payload": payload})
+    elif button_type == "copy_code" and coupon_code:
+        component["parameters"].append({"type": "coupon_code", "coupon_code": coupon_code})
+    
+    return component
+
+
+def build_template_components(
+    body_params: List[str] = None,
+    header_type: str = None,
+    header_text: str = None,
+    header_media_id: str = None,
+    header_media_link: str = None,
+    header_document_filename: str = None,
+    buttons: List[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Build complete template components array for send_template.
+    
+    This is a convenience function that combines header, body, and button components.
+    
+    Args:
+        body_params: List of text values for body placeholders {{1}}, {{2}}, etc.
+        header_type: "text", "image", "video", or "document" (optional)
+        header_text: Text for text headers
+        header_media_id: WhatsApp media ID for media headers
+        header_media_link: URL for media headers
+        header_document_filename: Filename for document headers
+        buttons: List of button configs, each with:
+            - index: 0-based button index
+            - type: "url", "quick_reply", or "copy_code"
+            - url_suffix: For dynamic URL buttons
+            - payload: For quick_reply buttons
+            - coupon_code: For copy_code buttons
+    
+    Returns:
+        Complete components array ready for send_template action
+    
+    Example:
+        # Template with body params and dynamic URL button
+        components = build_template_components(
+            body_params=["John", "ORD-12345"],
+            buttons=[{"index": 0, "type": "url", "url_suffix": "ORD-12345"}]
+        )
+        
+        # Template with image header and body params
+        components = build_template_components(
+            header_type="image",
+            header_media_id="123456789",
+            body_params=["Summer Sale", "50% off"]
+        )
+    """
+    components = []
+    
+    # Add header component if specified
+    if header_type:
+        header = build_template_header_component(
+            header_type=header_type,
+            text=header_text or "",
+            media_id=header_media_id or "",
+            media_link=header_media_link or "",
+            document_filename=header_document_filename or "",
+        )
+        if header.get("parameters"):
+            components.append(header)
+    
+    # Add body component if params provided
+    if body_params:
+        components.append(build_template_body_component(body_params))
+    
+    # Add button components
+    if buttons:
+        for btn in buttons:
+            btn_component = build_template_button_component(
+                button_index=btn.get("index", 0),
+                button_type=btn.get("type", "url"),
+                url_suffix=btn.get("url_suffix", ""),
+                payload=btn.get("payload", ""),
+                coupon_code=btn.get("coupon_code", ""),
+            )
+            if btn_component.get("parameters"):
+                components.append(btn_component)
+    
+    return components
 
 
 def build_email_html(sender_name: str, sender_number: str, message_text: str, media_url: str, 
@@ -386,7 +778,7 @@ def build_email_html(sender_name: str, sender_number: str, message_text: str, me
 def download_media_to_s3(media_id: str, phone_arn: str, s3_key: str) -> Dict[str, Any]:
     logger.info(f"Downloading mediaId={media_id} to s3://{MEDIA_BUCKET}/{s3_key}")
     try:
-        resp = social().get_whatsapp_message_media(
+        resp = social.get_whatsapp_message_media(
             mediaId=media_id,
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             destinationS3File={"bucketName": MEDIA_BUCKET, "key": s3_key},
@@ -461,7 +853,7 @@ def send_text_reply(phone_arn: str, to_wa: str, reply_to_msg_id: Optional[str]) 
         payload["context"] = {"message_id": reply_to_msg_id}
 
     logger.info(f"Sending text reply to {to_formatted}")
-    resp = social().send_whatsapp_message(
+    resp = social.send_whatsapp_message(
         originationPhoneNumberId=origination_id_for_api(phone_arn),
         metaApiVersion=META_API_VERSION,
         message=json.dumps(payload).encode("utf-8"),
@@ -482,7 +874,7 @@ def mark_message_as_read(phone_arn: str, wa_msg_id: str, msg_pk: str) -> Dict[st
     
     logger.info(f"Marking message as read: {wa_msg_id}")
     try:
-        resp = social().send_whatsapp_message(
+        resp = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -491,7 +883,7 @@ def mark_message_as_read(phone_arn: str, wa_msg_id: str, msg_pk: str) -> Dict[st
         # Update DynamoDB with read receipt sent status
         now = iso_now()
         try:
-            table().update_item(
+            table.update_item(
                 Key={MESSAGES_PK_NAME: msg_pk},
                 UpdateExpression="SET markedAsRead = :mar, markedAsReadAt = :marat",
                 ExpressionAttributeValues={
@@ -543,7 +935,7 @@ def react_with_emoji(phone_arn: str, to_wa: str, wa_msg_id: str, msg_pk: str,
     
     logger.info(f"Reacting to {message_type} message {wa_msg_id} with {reaction_emoji}")
     try:
-        resp = social().send_whatsapp_message(
+        resp = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -552,7 +944,7 @@ def react_with_emoji(phone_arn: str, to_wa: str, wa_msg_id: str, msg_pk: str,
         # Update DynamoDB with reaction sent status
         now = iso_now()
         try:
-            table().update_item(
+            table.update_item(
                 Key={MESSAGES_PK_NAME: msg_pk},
                 UpdateExpression="SET reactedWithEmoji = :emoji, reactedAt = :rat",
                 ExpressionAttributeValues={
@@ -571,7 +963,7 @@ def react_with_emoji(phone_arn: str, to_wa: str, wa_msg_id: str, msg_pk: str,
 
 def upload_s3_media_to_whatsapp(phone_arn: str, s3_key: str) -> Dict[str, Any]:
     logger.info(f"Uploading s3://{MEDIA_BUCKET}/{s3_key} to WhatsApp")
-    resp = social().post_whatsapp_message_media(
+    resp = social.post_whatsapp_message_media(
         originationPhoneNumberId=origination_id_for_api(phone_arn),
         sourceS3File={"bucketName": MEDIA_BUCKET, "key": s3_key},
     )
@@ -597,7 +989,7 @@ def send_media_message(phone_arn: str, to_wa: str, media_type: str, media_id: st
         payload[send_type]["filename"] = filename
 
     logger.info(f"Sending {send_type} to {to_formatted}")
-    resp = social().send_whatsapp_message(
+    resp = social.send_whatsapp_message(
         originationPhoneNumberId=origination_id_for_api(phone_arn),
         metaApiVersion=META_API_VERSION,
         message=json.dumps(payload).encode("utf-8"),
@@ -608,7 +1000,7 @@ def send_media_message(phone_arn: str, to_wa: str, media_type: str, media_id: st
 def delete_uploaded_media(phone_arn: str, media_id: str) -> Dict[str, Any]:
     if not FORWARD_DELETE_UPLOADED_MEDIA:
         return {"deleted": False, "reason": "disabled"}
-    resp = social().delete_whatsapp_message_media(
+    resp = social.delete_whatsapp_message_media(
         originationPhoneNumberId=origination_id_for_api(phone_arn),
         mediaId=media_id,
     )
@@ -635,7 +1027,7 @@ def update_message_status(wa_msg_id: str, status: str, status_timestamp: str,
     try:
         # Update the message item with new status using list_append for history
         # Also set direction=OUTBOUND since status updates are for sent messages
-        table().update_item(
+        table.update_item(
             Key={MESSAGES_PK_NAME: msg_pk},
             UpdateExpression=(
                 "SET deliveryStatus = :status, "
@@ -662,7 +1054,7 @@ def update_message_status(wa_msg_id: str, status: str, status_timestamp: str,
         if error_code == "ValidationException":
             logger.warning(f"Message {msg_pk} not found, creating status-only record")
             try:
-                table().put_item(
+                table.put_item(
                     Item={
                         MESSAGES_PK_NAME: msg_pk,
                         "itemType": "MESSAGE_STATUS",
@@ -695,7 +1087,7 @@ def send_email_notification(sender_name: str, sender_number: str, message_text: 
     
     logger.info(f"Sending email notification for message from {sender_number}")
     try:
-        resp = sns().publish(
+        resp = sns.publish(
             TopicArn=EMAIL_SNS_TOPIC_ARN,
             Subject=subject,
             Message=html_body,
@@ -739,7 +1131,7 @@ def update_phone_quality_rating(waba_id: str, phone_number_id: str,
         # First, find the WABA AWS ID from the Meta WABA ID
         waba_aws_id = None
         try:
-            response = social().list_linked_whatsapp_business_accounts()
+            response = social.list_linked_whatsapp_business_accounts()
             for account in response.get('linkedAccounts', []):
                 if account.get('wabaId') == waba_id:
                     waba_aws_id = account.get('id')
@@ -752,7 +1144,7 @@ def update_phone_quality_rating(waba_id: str, phone_number_id: str,
             return {"updated": False, "reason": "WABA not found"}
         
         # Get detailed account info with phone quality
-        detail = social().get_linked_whatsapp_business_account(id=waba_aws_id)
+        detail = social.get_linked_whatsapp_business_account(id=waba_aws_id)
         account_detail = detail.get('account', {})
         phone_numbers = account_detail.get('phoneNumbers', [])
         
@@ -801,8 +1193,11 @@ def update_phone_quality_rating(waba_id: str, phone_number_id: str,
             "rating": quality_rating,
             "throughputStatus": throughput_status,
             "checkedAt": now,
-        }        # Get existing history and limit to 50 entries to avoid DynamoDB item size limit
-        MAX_HISTORY_ENTRIES = 50
+        }
+        
+        # Update or create quality record in DynamoDB
+        # Limit history to 10 entries to avoid item size issues (DynamoDB 400KB limit)
+        MAX_HISTORY_ENTRIES = 10
         existing_history = []
         try:
             existing = table().get_item(Key={MESSAGES_PK_NAME: quality_pk})
@@ -815,9 +1210,7 @@ def update_phone_quality_rating(waba_id: str, phone_number_id: str,
         existing_history.append(history_entry)
         if len(existing_history) > MAX_HISTORY_ENTRIES:
             existing_history = existing_history[-MAX_HISTORY_ENTRIES:]
-
         
-        # Update or create quality record in DynamoDB
         try:
             table().update_item(
                 Key={MESSAGES_PK_NAME: quality_pk},
@@ -969,7 +1362,7 @@ def update_infrastructure_config() -> Dict[str, Any]:
                 "command": f"aws ec2 create-vpc-endpoint --vpc-id <VPC_ID> --service-name {service_name} --vpc-endpoint-type Interface --subnet-ids <SUBNET_IDS> --security-group-ids <SG_ID> --private-dns-enabled --region {region}",
             })
         
-        table().put_item(Item=item)
+        table.put_item(Item=item)
         
         return {
             "updated": True,
@@ -1037,7 +1430,7 @@ def update_media_types_config() -> Dict[str, Any]:
             },
         }
         
-        table().put_item(Item=item)
+        table.put_item(Item=item)
         logger.info(f"Updated media types config: {total_formats} formats, {len(all_mime_types)} MIME types")
         
         return {
@@ -1094,9 +1487,9 @@ def update_message_templates(waba_aws_id: str, waba_meta_id: str,
             "byQuality": {"GREEN": 0, "YELLOW": 0, "RED": 0, "UNKNOWN": 0},
             "byLanguage": {},
         }
-        
+        w
         try:
-            response = social().list_whatsapp_message_templates(id=waba_aws_id)
+            response = social.list_whatsapp_message_templates(id=waba_aws_id)
             raw_templates = response.get("templates", [])
             
             for t in raw_templates:
@@ -1179,7 +1572,7 @@ def update_message_templates(waba_aws_id: str, waba_meta_id: str,
             },
         }
         
-        table().put_item(Item=item)
+        table.put_item(Item=item)
         
         return {
             "updated": True,
@@ -1196,7 +1589,7 @@ def update_message_templates(waba_aws_id: str, waba_meta_id: str,
 def get_waba_aws_id(meta_waba_id: str) -> Optional[str]:
     """Get AWS WABA ID from Meta WABA ID."""
     try:
-        response = social().list_linked_whatsapp_business_accounts()
+        response = social.list_linked_whatsapp_business_accounts()
         for acc in response.get('linkedAccounts', []):
             if acc.get('wabaId') == meta_waba_id:
                 return acc.get('id')
@@ -1299,7 +1692,7 @@ def handle_template_action(event: Dict[str, Any], context: Any) -> Dict[str, Any
 def list_templates(waba_aws_id: str, meta_waba_id: str) -> Dict[str, Any]:
     """List all templates for a WABA."""
     try:
-        response = social().list_whatsapp_message_templates(id=waba_aws_id)
+        response = social.list_whatsapp_message_templates(id=waba_aws_id)
         templates = response.get("templates", [])
         
         # Store in DynamoDB
@@ -1325,7 +1718,7 @@ def list_templates(waba_aws_id: str, meta_waba_id: str) -> Dict[str, Any]:
                 stats[status] += 1
         
         # Update DynamoDB
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: templates_pk,
             "itemType": "MESSAGE_TEMPLATES",
             "wabaAwsId": waba_aws_id,
@@ -1381,7 +1774,7 @@ def create_template(waba_aws_id: str, meta_waba_id: str, template_def: Dict[str,
         # Convert template definition to bytes
         template_bytes = json.dumps(template_def).encode("utf-8")
         
-        response = social().create_whatsapp_message_template(
+        response = social.create_whatsapp_message_template(
             id=waba_aws_id,
             templateDefinition=template_bytes,
         )
@@ -1390,7 +1783,7 @@ def create_template(waba_aws_id: str, meta_waba_id: str, template_def: Dict[str,
         now = iso_now()
         template_pk = f"TEMPLATE#{waba_aws_id}#{template_name}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: template_pk,
             "itemType": "TEMPLATE_CREATED",
             "wabaAwsId": waba_aws_id,
@@ -1454,7 +1847,7 @@ def create_template_with_media(waba_aws_id: str, meta_waba_id: str,
     
     try:
         # Step 1: Upload media to get header handle
-        media_response = social().create_whatsapp_message_template_media(
+        media_response = social.create_whatsapp_message_template_media(
             originationPhoneNumberId=origination_id_for_api(
                 WABA_PHONE_MAP.get(meta_waba_id, {}).get("phoneArn", "")
             ),
@@ -1474,7 +1867,7 @@ def create_template_with_media(waba_aws_id: str, meta_waba_id: str,
         # Step 3: Create template
         template_bytes = json.dumps(template_def).encode("utf-8")
         
-        response = social().create_whatsapp_message_template(
+        response = social.create_whatsapp_message_template(
             id=waba_aws_id,
             templateDefinition=template_bytes,
         )
@@ -1483,7 +1876,7 @@ def create_template_with_media(waba_aws_id: str, meta_waba_id: str,
         now = iso_now()
         template_pk = f"TEMPLATE#{waba_aws_id}#{template_name}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: template_pk,
             "itemType": "TEMPLATE_CREATED",
             "wabaAwsId": waba_aws_id,
@@ -1515,7 +1908,7 @@ def delete_template(waba_aws_id: str, meta_waba_id: str, template_name: str) -> 
         return {"statusCode": 400, "error": "templateName is required"}
     
     try:
-        response = social().delete_whatsapp_message_template(
+        response = social.delete_whatsapp_message_template(
             id=waba_aws_id,
             templateName=template_name,
         )
@@ -1525,7 +1918,7 @@ def delete_template(waba_aws_id: str, meta_waba_id: str, template_name: str) -> 
         template_pk = f"TEMPLATE#{waba_aws_id}#{template_name}"
         
         try:
-            table().update_item(
+            table.update_item(
                 Key={MESSAGES_PK_NAME: template_pk},
                 UpdateExpression="SET #s = :s, deletedAt = :d",
                 ExpressionAttributeNames={"#s": "status"},
@@ -1551,7 +1944,7 @@ def get_template_status(waba_aws_id: str, meta_waba_id: str, template_name: str)
         return {"statusCode": 400, "error": "templateName is required"}
     
     try:
-        response = social().list_whatsapp_message_templates(id=waba_aws_id)
+        response = social.list_whatsapp_message_templates(id=waba_aws_id)
         templates = response.get("templates", [])
         
         for t in templates:
@@ -1582,9 +1975,23 @@ def get_template_status(waba_aws_id: str, meta_waba_id: str, template_name: str)
 
 
 def handle_send_template(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Send a template message.
+    """Send a template message with support for dynamic URLs and media headers.
     
-    Test Event Example:
+    WhatsApp templates support dynamic content through components:
+    - Header: Text with variables, or media (image/video/document)
+    - Body: Text with {{1}}, {{2}}, etc. placeholders
+    - Buttons: Dynamic URL suffix, quick reply payload, or coupon code
+    
+    Test Event - Simple text template:
+    {
+        "action": "send_template",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "templateName": "hello_world",
+        "languageCode": "en_US"
+    }
+    
+    Test Event - Template with body parameters:
     {
         "action": "send_template",
         "metaWabaId": "1347766229904230",
@@ -1595,9 +2002,91 @@ def handle_send_template(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             {
                 "type": "body",
                 "parameters": [
-                    {"type": "text", "text": "ORD-12345"},
-                    {"type": "text", "text": "https://track.example.com/12345"}
+                    {"type": "text", "text": "John"},
+                    {"type": "text", "text": "ORD-12345"}
                 ]
+            }
+        ]
+    }
+    
+    Test Event - Template with DYNAMIC URL button:
+    (Template has button URL: https://example.com/track/{{1}})
+    {
+        "action": "send_template",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "templateName": "order_tracking",
+        "languageCode": "en_US",
+        "components": [
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": "ORD-12345"}
+                ]
+            },
+            {
+                "type": "button",
+                "sub_type": "url",
+                "index": "0",
+                "parameters": [
+                    {"type": "text", "text": "ORD-12345"}
+                ]
+            }
+        ]
+    }
+    
+    Test Event - Template with image header:
+    {
+        "action": "send_template",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "templateName": "promo_image",
+        "languageCode": "en_US",
+        "components": [
+            {
+                "type": "header",
+                "parameters": [
+                    {"type": "image", "image": {"id": "123456789"}}
+                ]
+            },
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": "Summer Sale"},
+                    {"type": "text", "text": "50%"}
+                ]
+            }
+        ]
+    }
+    
+    Test Event - Using helper (simplified format):
+    {
+        "action": "send_template",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "templateName": "order_tracking",
+        "languageCode": "en_US",
+        "bodyParams": ["John", "ORD-12345"],
+        "buttons": [{"index": 0, "type": "url", "url_suffix": "ORD-12345"}]
+    }
+    
+    Test Event - Template with coupon code button:
+    {
+        "action": "send_template",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "templateName": "discount_offer",
+        "languageCode": "en_US",
+        "components": [
+            {
+                "type": "body",
+                "parameters": [{"type": "text", "text": "20%"}]
+            },
+            {
+                "type": "button",
+                "sub_type": "copy_code",
+                "index": "0",
+                "parameters": [{"type": "coupon_code", "coupon_code": "SAVE20"}]
             }
         ]
     }
@@ -1607,6 +2096,15 @@ def handle_send_template(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     template_name = event.get("templateName", "")
     language_code = event.get("languageCode", "en_US")
     components = event.get("components", [])
+    
+    # Support simplified format with bodyParams and buttons
+    body_params = event.get("bodyParams", [])
+    buttons = event.get("buttons", [])
+    header_type = event.get("headerType")
+    header_text = event.get("headerText")
+    header_media_id = event.get("headerMediaId")
+    header_media_link = event.get("headerMediaLink")
+    header_document_filename = event.get("headerDocumentFilename")
     
     if not meta_waba_id or not to_number or not template_name:
         return {"statusCode": 400, "error": "metaWabaId, to, and templateName are required"}
@@ -1619,6 +2117,18 @@ def handle_send_template(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
     try:
+        # Build components from simplified format if not provided directly
+        if not components and (body_params or buttons or header_type):
+            components = build_template_components(
+                body_params=body_params,
+                header_type=header_type,
+                header_text=header_text,
+                header_media_id=header_media_id,
+                header_media_link=header_media_link,
+                header_document_filename=header_document_filename,
+                buttons=buttons,
+            )
+        
         # Build template message payload
         payload = {
             "messaging_product": "whatsapp",
@@ -1633,7 +2143,7 @@ def handle_send_template(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if components:
             payload["template"]["components"] = components
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -1644,7 +2154,7 @@ def handle_send_template(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         msg_id = response.get("messageId", "")
         msg_pk = f"MSG#TEMPLATE#{msg_id}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
             "itemType": "TEMPLATE_MESSAGE",
             "direction": "OUTBOUND",
@@ -1679,9 +2189,12 @@ def handle_send_text(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "text": "Hello from Lambda!"
     }
     """
+    logger.info("=== HANDLE_SEND_TEXT CALLED ===")
     meta_waba_id = event.get("metaWabaId", "")
     to_number = event.get("to", "")
     text = event.get("text", "")
+    
+    logger.info(f"handle_send_text: metaWabaId={meta_waba_id}, to={to_number}")
     
     if not meta_waba_id or not to_number or not text:
         return {"statusCode": 400, "error": "metaWabaId, to, and text are required"}
@@ -1689,19 +2202,26 @@ def handle_send_text(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
     phone_arn = waba_config.get("phoneArn", "")
     
+    logger.info(f"handle_send_text: waba_config={waba_config}, phone_arn={phone_arn}")
+    
     if not phone_arn:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
     try:
+        formatted_to = format_wa_number(to_number)
+        origination_id = origination_id_for_api(phone_arn)
+        
         payload = {
             "messaging_product": "whatsapp",
-            "to": format_wa_number(to_number),
+            "to": formatted_to,
             "type": "text",
             "text": {"body": text},
         }
         
-        response = social().send_whatsapp_message(
-            originationPhoneNumberId=origination_id_for_api(phone_arn),
+        logger.info(f"send_text: origination_id={origination_id}, to={formatted_to}, payload={json.dumps(payload)}")
+        
+        response = social.send_whatsapp_message(
+            originationPhoneNumberId=origination_id,
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
         )
@@ -1711,7 +2231,7 @@ def handle_send_text(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         msg_id = response.get("messageId", "")
         msg_pk = f"MSG#{msg_id}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
             "itemType": "MESSAGE",
             "direction": "OUTBOUND",
@@ -1783,7 +2303,7 @@ def handle_send_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         # Upload to WhatsApp if s3Key provided
         if s3_key and not media_id:
-            upload_resp = social().post_whatsapp_message_media(
+            upload_resp = social.post_whatsapp_message_media(
                 originationPhoneNumberId=origination_id_for_api(phone_arn),
                 sourceS3File={"bucketName": MEDIA_BUCKET, "key": s3_key},
             )
@@ -1805,7 +2325,7 @@ def handle_send_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if filename and media_type == "document":
             payload[media_type]["filename"] = filename
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -1816,7 +2336,7 @@ def handle_send_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         msg_id = response.get("messageId", "")
         msg_pk = f"MSG#{msg_id}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
             "itemType": "MESSAGE",
             "direction": "OUTBOUND",
@@ -1884,7 +2404,7 @@ def handle_send_reaction(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             },
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -1946,7 +2466,7 @@ def handle_send_location(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if address:
             payload["location"]["address"] = address
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -1957,7 +2477,7 @@ def handle_send_location(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         msg_id = response.get("messageId", "")
         msg_pk = f"MSG#{msg_id}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
             "itemType": "MESSAGE",
             "direction": "OUTBOUND",
@@ -2022,7 +2542,7 @@ def handle_send_contact(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "contacts": contacts,
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -2035,7 +2555,7 @@ def handle_send_contact(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         contact_names = [c.get("name", {}).get("formatted_name", "Unknown") for c in contacts]
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
             "itemType": "MESSAGE",
             "direction": "OUTBOUND",
@@ -2146,7 +2666,7 @@ def handle_send_interactive(event: Dict[str, Any], context: Any) -> Dict[str, An
             "interactive": interactive,
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -2157,7 +2677,7 @@ def handle_send_interactive(event: Dict[str, Any], context: Any) -> Dict[str, An
         msg_id = response.get("messageId", "")
         msg_pk = f"MSG#{msg_id}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
             "itemType": "MESSAGE",
             "direction": "OUTBOUND",
@@ -2179,6 +2699,135 @@ def handle_send_interactive(event: Dict[str, Any], context: Any) -> Dict[str, An
             "operation": "send_interactive",
             "messageId": msg_id,
             "interactiveType": interactive_type,
+            "to": to_number,
+        }
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_send_cta_url(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Send a Call-To-Action URL button message.
+    
+    CTA URL buttons allow you to map any URL to a button without including
+    the raw URL in the message body. This is different from template buttons.
+    
+    Test Event:
+    {
+        "action": "send_cta_url",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "body": "Check out our latest products!",
+        "buttonText": "Shop Now",
+        "url": "https://example.com/shop",
+        "header": "🛍️ New Arrivals",
+        "footer": "Limited time offer"
+    }
+    
+    Test Event (with image header):
+    {
+        "action": "send_cta_url",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "body": "Summer collection is here!",
+        "buttonText": "View Collection",
+        "url": "https://example.com/summer",
+        "headerType": "image",
+        "headerMediaId": "123456789"
+    }
+    """
+    meta_waba_id = event.get("metaWabaId", "")
+    to_number = event.get("to", "")
+    body = event.get("body", "")
+    button_text = event.get("buttonText", "")
+    url = event.get("url", "")
+    header = event.get("header", "")
+    header_type = event.get("headerType", "text")
+    header_media_id = event.get("headerMediaId", "")
+    header_media_link = event.get("headerMediaLink", "")
+    footer = event.get("footer", "")
+    
+    if not meta_waba_id or not to_number or not body or not button_text or not url:
+        return {"statusCode": 400, "error": "metaWabaId, to, body, buttonText, and url are required"}
+    
+    waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    phone_arn = waba_config.get("phoneArn", "")
+    
+    if not phone_arn:
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    try:
+        # Build interactive CTA URL message
+        interactive: Dict[str, Any] = {
+            "type": "cta_url",
+            "body": {"text": body},
+            "action": {
+                "name": "cta_url",
+                "parameters": {
+                    "display_text": button_text,
+                    "url": url,
+                },
+            },
+        }
+        
+        # Add header if provided
+        if header_type == "text" and header:
+            interactive["header"] = {"type": "text", "text": header}
+        elif header_type in ("image", "video", "document"):
+            header_obj: Dict[str, Any] = {"type": header_type}
+            if header_media_id:
+                header_obj[header_type] = {"id": header_media_id}
+            elif header_media_link:
+                header_obj[header_type] = {"link": header_media_link}
+            if header_obj.get(header_type):
+                interactive["header"] = header_obj
+        
+        # Add footer if provided
+        if footer:
+            interactive["footer"] = {"text": footer}
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": format_wa_number(to_number),
+            "type": "interactive",
+            "interactive": interactive,
+        }
+        
+        response = social.send_whatsapp_message(
+            originationPhoneNumberId=origination_id_for_api(phone_arn),
+            metaApiVersion=META_API_VERSION,
+            message=json.dumps(payload).encode("utf-8"),
+        )
+        
+        # Store in DynamoDB
+        now = iso_now()
+        msg_id = response.get("messageId", "")
+        msg_pk = f"MSG#{msg_id}"
+        
+        table.put_item(Item={
+            MESSAGES_PK_NAME: msg_pk,
+            "itemType": "MESSAGE",
+            "direction": "OUTBOUND",
+            "to": to_number,
+            "type": "interactive",
+            "interactiveType": "cta_url",
+            "interactiveBody": body,
+            "ctaButtonText": button_text,
+            "ctaUrl": url,
+            "preview": f"[cta_url] {body[:80]}... [{button_text}]",
+            "sentAt": now,
+            "receivedAt": now,
+            "messageId": msg_id,
+            "originationPhoneNumberId": phone_arn,
+            "wabaMetaId": meta_waba_id,
+            "businessAccountName": waba_config.get("businessAccountName", ""),
+        })
+        
+        return {
+            "statusCode": 200,
+            "operation": "send_cta_url",
+            "messageId": msg_id,
+            "buttonText": button_text,
+            "url": url,
             "to": to_number,
         }
     except ClientError as e:
@@ -2214,7 +2863,7 @@ def handle_mark_read(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "status": "read",
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -2224,7 +2873,7 @@ def handle_mark_read(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         now = iso_now()
         msg_pk = f"MSG#{wa_msg_id}"
         try:
-            table().update_item(
+            table.update_item(
                 Key={MESSAGES_PK_NAME: msg_pk},
                 UpdateExpression="SET markedAsRead = :mar, markedAsReadAt = :marat",
                 ExpressionAttributeValues={":mar": True, ":marat": now},
@@ -2261,7 +2910,7 @@ def handle_get_messages(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         # Use GSI if filtering by direction
         if direction:
-            response = table().query(
+            response = table.query(
                 IndexName="gsi_direction",
                 KeyConditionExpression="direction = :d",
                 ExpressionAttributeValues={":d": direction},
@@ -2269,7 +2918,7 @@ def handle_get_messages(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 Limit=limit,
             )
         elif from_number:
-            response = table().query(
+            response = table.query(
                 IndexName="gsi_from",
                 KeyConditionExpression="fromPk = :f",
                 ExpressionAttributeValues={":f": from_number},
@@ -2283,7 +2932,7 @@ def handle_get_messages(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 scan_kwargs["FilterExpression"] = "contains(#to, :to)"
                 scan_kwargs["ExpressionAttributeNames"] = {"#to": "to"}
                 scan_kwargs["ExpressionAttributeValues"] = {":to": to_number}
-            response = table().scan(**scan_kwargs)
+            response = table.scan(**scan_kwargs)
         
         items = response.get("Items", [])
         messages = [i for i in items if i.get("itemType") in ("MESSAGE", "MESSAGE_STATUS")]
@@ -2312,7 +2961,7 @@ def handle_get_conversations(event: Dict[str, Any], context: Any) -> Dict[str, A
     
     try:
         if inbox_pk:
-            response = table().query(
+            response = table.query(
                 IndexName="gsi_inbox",
                 KeyConditionExpression="inboxPk = :pk",
                 ExpressionAttributeValues={":pk": inbox_pk},
@@ -2320,7 +2969,7 @@ def handle_get_conversations(event: Dict[str, Any], context: Any) -> Dict[str, A
                 Limit=limit,
             )
         else:
-            response = table().scan(
+            response = table.scan(
                 FilterExpression="itemType = :t",
                 ExpressionAttributeValues={":t": "CONVERSATION"},
                 Limit=limit,
@@ -2348,7 +2997,7 @@ def handle_get_quality(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     }
     """
     try:
-        response = table().scan(
+        response = table.scan(
             FilterExpression="itemType = :t",
             ExpressionAttributeValues={":t": "PHONE_QUALITY"},
         )
@@ -2374,7 +3023,7 @@ def handle_get_stats(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     }
     """
     try:
-        response = table().scan()
+        response = table.scan()
         items = response.get("Items", [])
         
         messages = [i for i in items if i.get("itemType") in ("MESSAGE", "MESSAGE_STATUS")]
@@ -2437,7 +3086,7 @@ def handle_upload_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
     try:
-        response = social().post_whatsapp_message_media(
+        response = social.post_whatsapp_message_media(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             sourceS3File={"bucketName": MEDIA_BUCKET, "key": s3_key},
         )
@@ -2475,7 +3124,7 @@ def handle_delete_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
     try:
-        response = social().delete_whatsapp_message_media(
+        response = social.delete_whatsapp_message_media(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             mediaId=media_id,
         )
@@ -2499,7 +3148,7 @@ def handle_get_wabas(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     }
     """
     try:
-        response = social().list_linked_whatsapp_business_accounts()
+        response = social.list_linked_whatsapp_business_accounts()
         accounts = response.get("linkedAccounts", [])
         
         result = []
@@ -2509,7 +3158,7 @@ def handle_get_wabas(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Get detailed info
             try:
-                detail = social().get_linked_whatsapp_business_account(id=waba_aws_id)
+                detail = social.get_linked_whatsapp_business_account(id=waba_aws_id)
                 account_detail = detail.get("account", {})
                 phone_numbers = account_detail.get("phoneNumbers", [])
                 
@@ -2585,7 +3234,7 @@ def handle_get_phone_info(event: Dict[str, Any], context: Any) -> Dict[str, Any]
     
     quality_info = {}
     try:
-        response = table().get_item(Key={MESSAGES_PK_NAME: quality_pk})
+        response = table.get_item(Key={MESSAGES_PK_NAME: quality_pk})
         quality_info = response.get("Item", {})
     except ClientError:
         pass
@@ -2645,7 +3294,7 @@ def handle_send_sticker(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         # Upload to WhatsApp if s3Key provided
         if s3_key and not media_id:
-            upload_resp = social().post_whatsapp_message_media(
+            upload_resp = social.post_whatsapp_message_media(
                 originationPhoneNumberId=origination_id_for_api(phone_arn),
                 sourceS3File={"bucketName": MEDIA_BUCKET, "key": s3_key},
             )
@@ -2660,7 +3309,7 @@ def handle_send_sticker(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "sticker": {"id": media_id},
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -2671,7 +3320,7 @@ def handle_send_sticker(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         msg_id = response.get("messageId", "")
         msg_pk = f"MSG#{msg_id}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
             "itemType": "MESSAGE",
             "direction": "OUTBOUND",
@@ -2780,7 +3429,7 @@ def handle_get_infra(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     }
     """
     try:
-        response = table().get_item(Key={MESSAGES_PK_NAME: "CONFIG#INFRASTRUCTURE"})
+        response = table.get_item(Key={MESSAGES_PK_NAME: "CONFIG#INFRASTRUCTURE"})
         item = response.get("Item", {})
         
         if not item:
@@ -2804,7 +3453,7 @@ def handle_get_media_types(event: Dict[str, Any], context: Any) -> Dict[str, Any
     }
     """
     try:
-        response = table().get_item(Key={MESSAGES_PK_NAME: "CONFIG#MEDIA_TYPES"})
+        response = table.get_item(Key={MESSAGES_PK_NAME: "CONFIG#MEDIA_TYPES"})
         item = response.get("Item", {})
         
         if not item:
@@ -2844,7 +3493,7 @@ def handle_get_message(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         pk = f"MSG#{message_id}"
     
     try:
-        response = table().get_item(Key={MESSAGES_PK_NAME: pk})
+        response = table.get_item(Key={MESSAGES_PK_NAME: pk})
         item = response.get("Item")
         
         if not item:
@@ -2886,7 +3535,7 @@ def handle_get_conversation(event: Dict[str, Any], context: Any) -> Dict[str, An
         conv_pk = f"CONV#{phone_id}#{from_number}"
     
     try:
-        response = table().get_item(Key={MESSAGES_PK_NAME: conv_pk})
+        response = table.get_item(Key={MESSAGES_PK_NAME: conv_pk})
         item = response.get("Item")
         
         if not item:
@@ -2915,7 +3564,7 @@ def handle_get_templates(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if not meta_waba_id:
         # Return all templates from DynamoDB
         try:
-            response = table().scan(
+            response = table.scan(
                 FilterExpression="itemType = :t",
                 ExpressionAttributeValues={":t": "MESSAGE_TEMPLATES"},
             )
@@ -2974,7 +3623,7 @@ def handle_remove_reaction(event: Dict[str, Any], context: Any) -> Dict[str, Any
             },
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -3051,7 +3700,7 @@ def handle_send_reply(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             # Media reply
             if s3_key and not media_id:
-                upload_resp = social().post_whatsapp_message_media(
+                upload_resp = social.post_whatsapp_message_media(
                     originationPhoneNumberId=origination_id_for_api(phone_arn),
                     sourceS3File={"bucketName": MEDIA_BUCKET, "key": s3_key},
                 )
@@ -3069,7 +3718,7 @@ def handle_send_reply(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             msg_type = media_type
             preview = f"[{media_type}] {caption}" if caption else f"[{media_type}]"
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
@@ -3080,7 +3729,7 @@ def handle_send_reply(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         msg_id = response.get("messageId", "")
         msg_pk = f"MSG#{msg_id}"
         
-        table().put_item(Item={
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
             "itemType": "MESSAGE",
             "direction": "OUTBOUND",
@@ -3113,7 +3762,9 @@ def handle_send_reply(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def handle_download_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Download media from WhatsApp to s3().
+    """Download media from WhatsApp to S3.
+    
+    S3 Path: s3://dev.wecare.digital/WhatsApp/download/{waba_folder}/{filename}_{uuid}.{ext}
     
     Test Event:
     {
@@ -3121,11 +3772,14 @@ def handle_download_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         "metaWabaId": "1347766229904230",
         "mediaId": "123456789",
         "filename": "document",
+        "mimeType": "application/pdf"
     }
     """
     meta_waba_id = event.get("metaWabaId", "")
     media_id = event.get("mediaId", "")
     s3_key = event.get("s3Key", "")
+    filename = event.get("filename", "media")
+    mime_type = event.get("mimeType", "")
     filename = event.get("filename", "media")
     mime_type = event.get("mimeType", "")
     
@@ -3138,14 +3792,14 @@ def handle_download_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]
     if not phone_arn:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
-    # Generate S3 key if not provided
+    # Generate S3 key with WABA folder and secure UUID filename
     if not s3_key:
         s3_key = generate_download_s3_key(meta_waba_id, filename, mime_type)
     
     waba_folder = get_waba_folder(meta_waba_id)
     
     try:
-        response = social().get_whatsapp_message_media(
+        response = social.get_whatsapp_message_media(
             mediaId=media_id,
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             destinationS3File={"bucketName": MEDIA_BUCKET, "key": s3_key},
@@ -3155,11 +3809,13 @@ def handle_download_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]
             "statusCode": 200,
             "operation": "download_media",
             "mediaId": media_id,
+            "wabaFolder": waba_folder,
             "s3Bucket": MEDIA_BUCKET,
             "s3Key": s3_key,
             "s3Uri": f"s3://{MEDIA_BUCKET}/{s3_key}",
             "fileSize": response.get("fileSize"),
             "mimeType": response.get("mimeType"),
+            "note": "Downloaded to WhatsApp/download/{waba_folder}/ with secure UUID filename"
         }
     except ClientError as e:
         return {"statusCode": 500, "error": str(e)}
@@ -3182,7 +3838,7 @@ def handle_get_delivery_status(event: Dict[str, Any], context: Any) -> Dict[str,
     msg_pk = f"MSG#{message_id}"
     
     try:
-        response = table().get_item(Key={MESSAGES_PK_NAME: msg_pk})
+        response = table.get_item(Key={MESSAGES_PK_NAME: msg_pk})
         item = response.get("Item")
         
         if not item:
@@ -3248,7 +3904,7 @@ def handle_update_conversation(event: Dict[str, Any], context: Any) -> Dict[str,
         if not update_expr_parts:
             return {"statusCode": 400, "error": "No update fields provided"}
         
-        table().update_item(
+        table.update_item(
             Key={MESSAGES_PK_NAME: conv_pk},
             UpdateExpression="SET " + ", ".join(update_expr_parts),
             ExpressionAttributeValues=expr_values,
@@ -3284,10 +3940,10 @@ def handle_delete_message(event: Dict[str, Any], context: Any) -> Dict[str, Any]
     
     try:
         if hard_delete:
-            table().delete_item(Key={MESSAGES_PK_NAME: msg_pk})
+            table.delete_item(Key={MESSAGES_PK_NAME: msg_pk})
         else:
             # Soft delete - mark as deleted
-            table().update_item(
+            table.update_item(
                 Key={MESSAGES_PK_NAME: msg_pk},
                 UpdateExpression="SET deleted = :d, deletedAt = :dat",
                 ExpressionAttributeValues={":d": True, ":dat": iso_now()},
@@ -3345,7 +4001,7 @@ def handle_search_messages(event: Dict[str, Any], context: Any) -> Dict[str, Any
         if expr_names:
             scan_kwargs["ExpressionAttributeNames"] = expr_names
         
-        response = table().scan(**scan_kwargs)
+        response = table.scan(**scan_kwargs)
         
         items = response.get("Items", [])
         messages = [i for i in items if i.get("itemType") in ("MESSAGE", "MESSAGE_STATUS")][:limit]
@@ -3504,7 +4160,7 @@ def handle_bulk_send(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 error_count += 1
                 continue
             
-            response = social().send_whatsapp_message(
+            response = social.send_whatsapp_message(
                 originationPhoneNumberId=origination_id_for_api(phone_arn),
                 metaApiVersion=META_API_VERSION,
                 message=json.dumps(payload).encode("utf-8"),
@@ -3517,7 +4173,7 @@ def handle_bulk_send(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Store in DynamoDB
             now = iso_now()
             msg_pk = f"MSG#{msg_id}"
-            table().put_item(Item={
+            table.put_item(Item={
                 MESSAGES_PK_NAME: msg_pk,
                 "itemType": "MESSAGE",
                 "direction": "OUTBOUND",
@@ -3618,7 +4274,7 @@ def handle_send_document(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def handle_get_media_url(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Get presigned URL for media stored in s3().
+    """Get presigned URL for media stored in S3.
     
     Test Event:
     {
@@ -3644,7 +4300,7 @@ def handle_get_media_url(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if message_id and not s3_key:
         msg_pk = f"MSG#{message_id}"
         try:
-            response = table().get_item(Key={MESSAGES_PK_NAME: msg_pk})
+            response = table.get_item(Key={MESSAGES_PK_NAME: msg_pk})
             item = response.get("Item")
             if not item:
                 return {"statusCode": 404, "error": f"Message not found: {message_id}"}
@@ -3694,7 +4350,7 @@ def handle_resend_message(event: Dict[str, Any], context: Any) -> Dict[str, Any]
     
     try:
         # Get original message
-        response = table().get_item(Key={MESSAGES_PK_NAME: msg_pk})
+        response = table.get_item(Key={MESSAGES_PK_NAME: msg_pk})
         item = response.get("Item")
         
         if not item:
@@ -3789,7 +4445,7 @@ def handle_get_conversation_messages(event: Dict[str, Any], context: Any) -> Dic
     
     try:
         # Query messages by conversationPk using GSI
-        response = table().query(
+        response = table.query(
             IndexName="gsi_conversation",
             KeyConditionExpression="conversationPk = :cpk",
             ExpressionAttributeValues={":cpk": conv_pk},
@@ -3811,7 +4467,7 @@ def handle_get_conversation_messages(event: Dict[str, Any], context: Any) -> Dic
         # If GSI doesn't exist, fall back to scan
         if "ValidationException" in str(e):
             try:
-                response = table().scan(
+                response = table.scan(
                     FilterExpression="conversationPk = :cpk AND itemType = :it",
                     ExpressionAttributeValues={":cpk": conv_pk, ":it": "MESSAGE"},
                     Limit=limit,
@@ -3856,7 +4512,7 @@ def handle_get_unread_count(event: Dict[str, Any], context: Any) -> Dict[str, An
     try:
         if conv_pk:
             # Get unread count for specific conversation
-            response = table().get_item(Key={MESSAGES_PK_NAME: conv_pk})
+            response = table.get_item(Key={MESSAGES_PK_NAME: conv_pk})
             item = response.get("Item")
             if not item:
                 return {"statusCode": 404, "error": f"Conversation not found: {conv_pk}"}
@@ -3870,7 +4526,7 @@ def handle_get_unread_count(event: Dict[str, Any], context: Any) -> Dict[str, An
         
         elif inbox_pk:
             # Get unread count for all conversations in inbox
-            response = table().query(
+            response = table.query(
                 IndexName="gsi_inbox",
                 KeyConditionExpression="inboxPk = :pk",
                 ExpressionAttributeValues={":pk": inbox_pk},
@@ -3889,7 +4545,7 @@ def handle_get_unread_count(event: Dict[str, Any], context: Any) -> Dict[str, An
         
         else:
             # Get total unread count across all conversations
-            response = table().scan(
+            response = table.scan(
                 FilterExpression="itemType = :t",
                 ExpressionAttributeValues={":t": "CONVERSATION"},
             )
@@ -3937,7 +4593,7 @@ def handle_mark_conversation_read(event: Dict[str, Any], context: Any) -> Dict[s
     
     try:
         # Reset unread count on conversation
-        table().update_item(
+        table.update_item(
             Key={MESSAGES_PK_NAME: conv_pk},
             UpdateExpression="SET unreadCount = :zero, lastReadAt = :now",
             ExpressionAttributeValues={":zero": 0, ":now": now},
@@ -3975,7 +4631,7 @@ def handle_archive_conversation(event: Dict[str, Any], context: Any) -> Dict[str
     now = iso_now()
     
     try:
-        table().update_item(
+        table.update_item(
             Key={MESSAGES_PK_NAME: conv_pk},
             UpdateExpression="SET archived = :a, archivedAt = :at",
             ExpressionAttributeValues={":a": True, ":at": now},
@@ -4014,7 +4670,7 @@ def handle_unarchive_conversation(event: Dict[str, Any], context: Any) -> Dict[s
     now = iso_now()
     
     try:
-        table().update_item(
+        table.update_item(
             Key={MESSAGES_PK_NAME: conv_pk},
             UpdateExpression="SET archived = :a, unarchivedAt = :at REMOVE archivedAt",
             ExpressionAttributeValues={":a": False, ":at": now},
@@ -4060,7 +4716,7 @@ def handle_export_messages(event: Dict[str, Any], context: Any) -> Dict[str, Any
     try:
         if conv_pk:
             # Export specific conversation
-            response = table().query(
+            response = table.query(
                 IndexName="gsi_conversation",
                 KeyConditionExpression="conversationPk = :cpk",
                 ExpressionAttributeValues={":cpk": conv_pk},
@@ -4068,7 +4724,7 @@ def handle_export_messages(event: Dict[str, Any], context: Any) -> Dict[str, Any
             )
         else:
             # Export all messages
-            response = table().scan(
+            response = table.scan(
                 FilterExpression="itemType = :t",
                 ExpressionAttributeValues={":t": "MESSAGE"},
                 Limit=limit,
@@ -4094,7 +4750,7 @@ def handle_export_messages(event: Dict[str, Any], context: Any) -> Dict[str, Any
         }
         
         # Upload to S3
-        s3().put_object(
+        s3.put_object(
             Bucket=MEDIA_BUCKET,
             Key=s3_key,
             Body=json.dumps(export_data, ensure_ascii=False, default=str),
@@ -4134,7 +4790,7 @@ def handle_get_message_by_wa_id(event: Dict[str, Any], context: Any) -> Dict[str
     msg_pk = f"MSG#{wa_msg_id}"
     
     try:
-        response = table().get_item(Key={MESSAGES_PK_NAME: msg_pk})
+        response = table.get_item(Key={MESSAGES_PK_NAME: msg_pk})
         item = response.get("Item")
         
         if item:
@@ -4145,7 +4801,7 @@ def handle_get_message_by_wa_id(event: Dict[str, Any], context: Any) -> Dict[str
             }
         
         # If not found, try scanning for the waMessageId field
-        response = table().scan(
+        response = table.scan(
             FilterExpression="contains(#pk, :wamid) OR waMessageId = :wamid",
             ExpressionAttributeNames={"#pk": MESSAGES_PK_NAME},
             ExpressionAttributeValues={":wamid": wa_msg_id},
@@ -4178,7 +4834,7 @@ def handle_get_archived_conversations(event: Dict[str, Any], context: Any) -> Di
     limit = event.get("limit", 50)
     
     try:
-        response = table().scan(
+        response = table.scan(
             FilterExpression="itemType = :t AND archived = :a",
             ExpressionAttributeValues={":t": "CONVERSATION", ":a": True},
             Limit=limit,
@@ -4208,7 +4864,7 @@ def handle_get_failed_messages(event: Dict[str, Any], context: Any) -> Dict[str,
     limit = event.get("limit", 50)
     
     try:
-        response = table().scan(
+        response = table.scan(
             FilterExpression="deliveryStatus = :s",
             ExpressionAttributeValues={":s": "failed"},
             Limit=limit,
@@ -4239,7 +4895,7 @@ def handle_retry_failed_messages(event: Dict[str, Any], context: Any) -> Dict[st
     
     try:
         # Get failed messages
-        response = table().scan(
+        response = table.scan(
             FilterExpression="deliveryStatus = :s AND direction = :d",
             ExpressionAttributeValues={":s": "failed", ":d": "OUTBOUND"},
             Limit=limit,
@@ -4302,7 +4958,7 @@ def handle_validate_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]
     # If S3 key provided, get actual file info
     if s3_key and not mime_type:
         try:
-            head = s3().head_object(Bucket=MEDIA_BUCKET, Key=s3_key)
+            head = s3.head_object(Bucket=MEDIA_BUCKET, Key=s3_key)
             mime_type = head.get("ContentType", "")
             file_size = int(head.get("ContentLength", 0))
         except ClientError as e:
@@ -4385,44 +5041,61 @@ def handle_get_supported_formats(event: Dict[str, Any], context: Any) -> Dict[st
     }
 
 
-# New handlers to add to app.py
-# These handlers add support for:
-# 1. WhatsApp Flows (send_flow)
-# 2. Product messages (send_product, send_product_list)
-# 3. Order messages (send_order_details, send_order_status)
-# 4. Catalog messages (send_catalog)
-# 5. CTA URL buttons (send_cta_url)
-# 6. Bulk campaign management (create_campaign, get_campaigns, get_campaign_stats)
-
-
 def handle_send_flow(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Send a WhatsApp Flow message.
     
-    Test Event:
+    WhatsApp Flows allow structured interactions like forms, surveys, appointments.
+    Flows must be created and published in Meta Business Suite first.
+    
+    Test Event (navigate mode - opens flow directly):
     {
         "action": "send_flow",
         "metaWabaId": "1347766229904230",
         "to": "+447447840003",
-        "flowId": "1234567890",
-        "flowToken": "optional_token",
-        "flowCta": "Open Form",
-        "flowAction": "navigate",
-        "flowActionPayload": {"screen": "WELCOME"},
-        "header": "Survey",
-        "body": "Please complete this survey",
-        "footer": "Powered by WECARE.DIGITAL"
+        "flowId": "123456789",
+        "flowCta": "Book Appointment",
+        "body": "Click below to book your appointment",
+        "mode": "navigate",
+        "flowScreen": "APPOINTMENT_SCREEN"
+    }
+    
+    Test Event (draft mode - for testing unpublished flows):
+    {
+        "action": "send_flow",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "flowId": "123456789",
+        "flowCta": "Start Survey",
+        "body": "Please complete our feedback survey",
+        "mode": "draft"
+    }
+    
+    Test Event (with header and footer):
+    {
+        "action": "send_flow",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "flowId": "123456789",
+        "flowCta": "Get Quote",
+        "header": "Insurance Quote",
+        "body": "Get a personalized insurance quote in minutes",
+        "footer": "Powered by WECARE.DIGITAL",
+        "mode": "navigate",
+        "flowScreen": "QUOTE_FORM",
+        "flowData": {"product_type": "health", "user_id": "12345"}
     }
     """
     meta_waba_id = event.get("metaWabaId", "")
     to_number = event.get("to", "")
     flow_id = event.get("flowId", "")
-    flow_token = event.get("flowToken", "")
     flow_cta = event.get("flowCta", "Open")
-    flow_action = event.get("flowAction", "navigate")  # navigate or data_exchange
-    flow_action_payload = event.get("flowActionPayload", {})
-    header = event.get("header", "")
     body = event.get("body", "")
+    header = event.get("header", "")
     footer = event.get("footer", "")
+    mode = event.get("mode", "navigate")  # "navigate" or "draft"
+    flow_screen = event.get("flowScreen", "")
+    flow_data = event.get("flowData", {})
+    flow_token = event.get("flowToken", "")
     
     if not meta_waba_id or not to_number or not flow_id or not body:
         return {"statusCode": 400, "error": "metaWabaId, to, flowId, and body are required"}
@@ -4434,24 +5107,35 @@ def handle_send_flow(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
     try:
-        interactive = {
-            "type": "flow",
-            "body": {"text": body},
-            "action": {
-                "name": "flow",
-                "parameters": {
-                    "flow_message_version": "3",
-                    "flow_id": flow_id,
-                    "flow_cta": flow_cta,
-                    "flow_action": flow_action,
-                }
+        # Build flow action parameters
+        flow_action: Dict[str, Any] = {
+            "name": "flow",
+            "parameters": {
+                "flow_message_version": "3",
+                "flow_id": flow_id,
+                "flow_cta": flow_cta,
+                "mode": mode,
             }
         }
         
+        # Add optional flow parameters
         if flow_token:
-            interactive["action"]["parameters"]["flow_token"] = flow_token
-        if flow_action_payload:
-            interactive["action"]["parameters"]["flow_action_payload"] = flow_action_payload
+            flow_action["parameters"]["flow_token"] = flow_token
+        if flow_screen:
+            flow_action["parameters"]["flow_action"] = "navigate"
+            flow_action["parameters"]["flow_action_payload"] = {
+                "screen": flow_screen,
+            }
+            if flow_data:
+                flow_action["parameters"]["flow_action_payload"]["data"] = flow_data
+        
+        # Build interactive message
+        interactive: Dict[str, Any] = {
+            "type": "flow",
+            "body": {"text": body},
+            "action": flow_action,
+        }
+        
         if header:
             interactive["header"] = {"type": "text", "text": header}
         if footer:
@@ -4464,31 +5148,32 @@ def handle_send_flow(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "interactive": interactive,
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
         )
         
-        msg_id = response.get("messageId", "")
-        
         # Store in DynamoDB
         now = iso_now()
-        msg_pk = f"MSG#{msg_id}"
-        table().put_item(Item={
+        msg_id = response.get("messageId", "")
+        msg_pk = f"MSG#FLOW#{msg_id}"
+        
+        table.put_item(Item={
             MESSAGES_PK_NAME: msg_pk,
-            "itemType": "MESSAGE",
+            "itemType": "FLOW_MESSAGE",
             "direction": "OUTBOUND",
+            "wabaMetaId": meta_waba_id,
             "to": to_number,
-            "type": "flow",
+            "type": "interactive",
+            "interactiveType": "flow",
             "flowId": flow_id,
-            "preview": f"[flow:{flow_cta}] {body[:100]}",
+            "flowCta": flow_cta,
+            "interactiveBody": body,
+            "preview": f"[flow] {body[:80]}...",
             "sentAt": now,
             "receivedAt": now,
             "messageId": msg_id,
-            "originationPhoneNumberId": phone_arn,
-            "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
         })
         
         return {
@@ -4498,12 +5183,148 @@ def handle_send_flow(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "flowId": flow_id,
             "to": to_number,
         }
+        
     except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        error_msg = e.response.get("Error", {}).get("Message", str(e))
+        return {"statusCode": 500, "error": f"{error_code}: {error_msg}"}
+    except Exception as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_send_address_message(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Send an address collection message.
+    
+    Address messages allow collecting shipping/delivery addresses from users.
+    Currently supported in India (IN) and Singapore (SG).
+    
+    Test Event:
+    {
+        "action": "send_address_message",
+        "metaWabaId": "1347766229904230",
+        "to": "+447447840003",
+        "body": "Please provide your delivery address",
+        "country": "IN",
+        "header": "Delivery Address",
+        "footer": "Your address will be used for delivery only"
+    }
+    
+    Test Event (with pre-filled values):
+    {
+        "action": "send_address_message",
+        "metaWabaId": "1347766229904230",
+        "to": "+919903300044",
+        "body": "Confirm or update your delivery address",
+        "country": "IN",
+        "values": {
+            "name": "John Doe",
+            "phone_number": "+919903300044",
+            "in_pin_code": "700001",
+            "city": "Kolkata",
+            "state": "West Bengal"
+        }
+    }
+    """
+    meta_waba_id = event.get("metaWabaId", "")
+    to_number = event.get("to", "")
+    body = event.get("body", "")
+    country = event.get("country", "IN")
+    header = event.get("header", "")
+    footer = event.get("footer", "")
+    values = event.get("values", {})
+    saved_addresses = event.get("savedAddresses", [])
+    
+    if not meta_waba_id or not to_number or not body:
+        return {"statusCode": 400, "error": "metaWabaId, to, and body are required"}
+    
+    if country not in ["IN", "SG"]:
+        return {"statusCode": 400, "error": "Address messages only supported in IN (India) and SG (Singapore)"}
+    
+    waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    phone_arn = waba_config.get("phoneArn", "")
+    
+    if not phone_arn:
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    try:
+        # Build action parameters
+        action_params: Dict[str, Any] = {
+            "country": country,
+        }
+        if values:
+            action_params["values"] = values
+        if saved_addresses:
+            action_params["saved_addresses"] = saved_addresses
+        
+        # Build interactive message
+        interactive: Dict[str, Any] = {
+            "type": "address_message",
+            "body": {"text": body},
+            "action": {
+                "name": "address_message",
+                "parameters": action_params,
+            },
+        }
+        
+        if header:
+            interactive["header"] = {"type": "text", "text": header}
+        if footer:
+            interactive["footer"] = {"text": footer}
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": format_wa_number(to_number),
+            "type": "interactive",
+            "interactive": interactive,
+        }
+        
+        response = social.send_whatsapp_message(
+            originationPhoneNumberId=origination_id_for_api(phone_arn),
+            metaApiVersion=META_API_VERSION,
+            message=json.dumps(payload).encode("utf-8"),
+        )
+        
+        # Store in DynamoDB
+        now = iso_now()
+        msg_id = response.get("messageId", "")
+        msg_pk = f"MSG#ADDRESS#{msg_id}"
+        
+        table.put_item(Item={
+            MESSAGES_PK_NAME: msg_pk,
+            "itemType": "ADDRESS_MESSAGE",
+            "direction": "OUTBOUND",
+            "wabaMetaId": meta_waba_id,
+            "to": to_number,
+            "type": "interactive",
+            "interactiveType": "address_message",
+            "country": country,
+            "interactiveBody": body,
+            "preview": f"[address] {body[:80]}...",
+            "sentAt": now,
+            "receivedAt": now,
+            "messageId": msg_id,
+        })
+        
+        return {
+            "statusCode": 200,
+            "operation": "send_address_message",
+            "messageId": msg_id,
+            "country": country,
+            "to": to_number,
+        }
+        
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        error_msg = e.response.get("Error", {}).get("Message", str(e))
+        return {"statusCode": 500, "error": f"{error_code}: {error_msg}"}
+    except Exception as e:
         return {"statusCode": 500, "error": str(e)}
 
 
 def handle_send_product(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Send a single product message from catalog.
+    
+    Requires a Facebook Commerce catalog linked to your WABA.
     
     Test Event:
     {
@@ -4511,9 +5332,8 @@ def handle_send_product(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "metaWabaId": "1347766229904230",
         "to": "+447447840003",
         "catalogId": "123456789",
-        "productRetailerId": "SKU123",
-        "body": "Check out this product!",
-        "footer": "Limited time offer"
+        "productRetailerId": "SKU-001",
+        "body": "Check out this product!"
     }
     """
     meta_waba_id = event.get("metaWabaId", "")
@@ -4533,12 +5353,12 @@ def handle_send_product(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
     try:
-        interactive = {
+        interactive: Dict[str, Any] = {
             "type": "product",
             "action": {
                 "catalog_id": catalog_id,
                 "product_retailer_id": product_retailer_id,
-            }
+            },
         }
         
         if body:
@@ -4553,31 +5373,27 @@ def handle_send_product(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "interactive": interactive,
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
         )
         
+        now = iso_now()
         msg_id = response.get("messageId", "")
         
-        now = iso_now()
-        msg_pk = f"MSG#{msg_id}"
-        table().put_item(Item={
-            MESSAGES_PK_NAME: msg_pk,
-            "itemType": "MESSAGE",
+        table.put_item(Item={
+            MESSAGES_PK_NAME: f"MSG#PRODUCT#{msg_id}",
+            "itemType": "PRODUCT_MESSAGE",
             "direction": "OUTBOUND",
+            "wabaMetaId": meta_waba_id,
             "to": to_number,
-            "type": "product",
+            "type": "interactive",
+            "interactiveType": "product",
             "catalogId": catalog_id,
             "productRetailerId": product_retailer_id,
-            "preview": f"[product:{product_retailer_id}]",
             "sentAt": now,
-            "receivedAt": now,
             "messageId": msg_id,
-            "originationPhoneNumberId": phone_arn,
-            "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
         })
         
         return {
@@ -4588,12 +5404,19 @@ def handle_send_product(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "productRetailerId": product_retailer_id,
             "to": to_number,
         }
+        
     except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        error_msg = e.response.get("Error", {}).get("Message", str(e))
+        return {"statusCode": 500, "error": f"{error_code}: {error_msg}"}
+    except Exception as e:
         return {"statusCode": 500, "error": str(e)}
 
 
 def handle_send_product_list(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Send a multi-product message from catalog.
+    
+    Requires a Facebook Commerce catalog linked to your WABA.
     
     Test Event:
     {
@@ -4603,13 +5426,18 @@ def handle_send_product_list(event: Dict[str, Any], context: Any) -> Dict[str, A
         "catalogId": "123456789",
         "header": "Our Products",
         "body": "Browse our collection",
-        "footer": "Tap to view",
         "sections": [
             {
                 "title": "Popular Items",
                 "productItems": [
-                    {"productRetailerId": "SKU001"},
-                    {"productRetailerId": "SKU002"}
+                    {"productRetailerId": "SKU-001"},
+                    {"productRetailerId": "SKU-002"}
+                ]
+            },
+            {
+                "title": "New Arrivals",
+                "productItems": [
+                    {"productRetailerId": "SKU-003"}
                 ]
             }
         ]
@@ -4633,18 +5461,24 @@ def handle_send_product_list(event: Dict[str, Any], context: Any) -> Dict[str, A
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
     try:
-        interactive = {
+        # Convert sections to API format
+        api_sections = []
+        for section in sections:
+            api_section = {
+                "title": section.get("title", ""),
+                "product_items": [
+                    {"product_retailer_id": item.get("productRetailerId", item.get("product_retailer_id", ""))}
+                    for item in section.get("productItems", section.get("product_items", []))
+                ]
+            }
+            api_sections.append(api_section)
+        
+        interactive: Dict[str, Any] = {
             "type": "product_list",
             "action": {
                 "catalog_id": catalog_id,
-                "sections": [
-                    {
-                        "title": s.get("title", "Products"),
-                        "product_items": [{"product_retailer_id": p.get("productRetailerId")} for p in s.get("productItems", [])]
-                    }
-                    for s in sections
-                ]
-            }
+                "sections": api_sections,
+            },
         }
         
         if header:
@@ -4661,32 +5495,27 @@ def handle_send_product_list(event: Dict[str, Any], context: Any) -> Dict[str, A
             "interactive": interactive,
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
         )
         
+        now = iso_now()
         msg_id = response.get("messageId", "")
         
-        now = iso_now()
-        msg_pk = f"MSG#{msg_id}"
-        product_count = sum(len(s.get("productItems", [])) for s in sections)
-        table().put_item(Item={
-            MESSAGES_PK_NAME: msg_pk,
-            "itemType": "MESSAGE",
+        table.put_item(Item={
+            MESSAGES_PK_NAME: f"MSG#PRODUCT_LIST#{msg_id}",
+            "itemType": "PRODUCT_LIST_MESSAGE",
             "direction": "OUTBOUND",
-            "to": to_number,
-            "type": "product_list",
-            "catalogId": catalog_id,
-            "productCount": product_count,
-            "preview": f"[product_list:{product_count} items]",
-            "sentAt": now,
-            "receivedAt": now,
-            "messageId": msg_id,
-            "originationPhoneNumberId": phone_arn,
             "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
+            "to": to_number,
+            "type": "interactive",
+            "interactiveType": "product_list",
+            "catalogId": catalog_id,
+            "sectionCount": len(sections),
+            "sentAt": now,
+            "messageId": msg_id,
         })
         
         return {
@@ -4694,714 +5523,37 @@ def handle_send_product_list(event: Dict[str, Any], context: Any) -> Dict[str, A
             "operation": "send_product_list",
             "messageId": msg_id,
             "catalogId": catalog_id,
-            "productCount": product_count,
+            "sectionCount": len(sections),
             "to": to_number,
         }
+        
     except ClientError as e:
-        return {"statusCode": 500, "error": str(e)}
-
-
-def handle_send_order_details(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Send order details/confirmation message.
-    
-    Test Event:
-    {
-        "action": "send_order_details",
-        "metaWabaId": "1347766229904230",
-        "to": "+447447840003",
-        "referenceId": "ORD-12345",
-        "orderType": "digital-goods",
-        "paymentStatus": "pending",
-        "orderStatus": "pending",
-        "catalogId": "123456789",
-        "items": [
-            {
-                "retailerId": "SKU001",
-                "name": "Product 1",
-                "amount": {"value": 1000, "offset": 100},
-                "quantity": 2
-            }
-        ],
-        "subtotal": {"value": 2000, "offset": 100},
-        "tax": {"value": 360, "offset": 100, "description": "GST 18%"},
-        "total": {"value": 2360, "offset": 100},
-        "currency": "INR"
-    }
-    """
-    meta_waba_id = event.get("metaWabaId", "")
-    to_number = event.get("to", "")
-    reference_id = event.get("referenceId", "")
-    order_type = event.get("orderType", "digital-goods")
-    payment_status = event.get("paymentStatus", "pending")
-    order_status = event.get("orderStatus", "pending")
-    catalog_id = event.get("catalogId", "")
-    items = event.get("items", [])
-    subtotal = event.get("subtotal", {})
-    tax = event.get("tax", {})
-    shipping = event.get("shipping", {})
-    discount = event.get("discount", {})
-    total = event.get("total", {})
-    currency = event.get("currency", "INR")
-    
-    if not meta_waba_id or not to_number or not reference_id or not items:
-        return {"statusCode": 400, "error": "metaWabaId, to, referenceId, and items are required"}
-    
-    waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
-    phone_arn = waba_config.get("phoneArn", "")
-    
-    if not phone_arn:
-        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
-    
-    try:
-        order = {
-            "reference_id": reference_id,
-            "type": order_type,
-            "payment_settings": [{"type": "payment_gateway"}],
-            "order": {
-                "status": order_status,
-                "catalog_id": catalog_id,
-                "items": [
-                    {
-                        "retailer_id": item.get("retailerId"),
-                        "name": item.get("name"),
-                        "amount": item.get("amount"),
-                        "quantity": item.get("quantity", 1),
-                    }
-                    for item in items
-                ],
-                "subtotal": subtotal,
-                "tax": tax,
-                "total": total,
-            }
-        }
-        
-        if shipping:
-            order["order"]["shipping"] = shipping
-        if discount:
-            order["order"]["discount"] = discount
-        
-        interactive = {
-            "type": "order_details",
-            "body": {"text": f"Order #{reference_id}"},
-            "action": {
-                "name": "review_and_pay",
-                "parameters": order,
-            }
-        }
-        
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": format_wa_number(to_number),
-            "type": "interactive",
-            "interactive": interactive,
-        }
-        
-        response = social().send_whatsapp_message(
-            originationPhoneNumberId=origination_id_for_api(phone_arn),
-            metaApiVersion=META_API_VERSION,
-            message=json.dumps(payload).encode("utf-8"),
-        )
-        
-        msg_id = response.get("messageId", "")
-        
-        now = iso_now()
-        msg_pk = f"MSG#{msg_id}"
-        table().put_item(Item={
-            MESSAGES_PK_NAME: msg_pk,
-            "itemType": "MESSAGE",
-            "direction": "OUTBOUND",
-            "to": to_number,
-            "type": "order_details",
-            "referenceId": reference_id,
-            "orderStatus": order_status,
-            "paymentStatus": payment_status,
-            "itemCount": len(items),
-            "totalValue": total.get("value", 0),
-            "currency": currency,
-            "preview": f"[order:{reference_id}] {len(items)} items",
-            "sentAt": now,
-            "receivedAt": now,
-            "messageId": msg_id,
-            "originationPhoneNumberId": phone_arn,
-            "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
-        })
-        
-        return {
-            "statusCode": 200,
-            "operation": "send_order_details",
-            "messageId": msg_id,
-            "referenceId": reference_id,
-            "itemCount": len(items),
-            "to": to_number,
-        }
-    except ClientError as e:
-        return {"statusCode": 500, "error": str(e)}
-
-
-def handle_send_order_status(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Send order status update message.
-    
-    Test Event:
-    {
-        "action": "send_order_status",
-        "metaWabaId": "1347766229904230",
-        "to": "+447447840003",
-        "referenceId": "ORD-12345",
-        "status": "shipped",
-        "description": "Your order has been shipped!",
-        "trackingUrl": "https://track.example.com/ORD-12345"
-    }
-    """
-    meta_waba_id = event.get("metaWabaId", "")
-    to_number = event.get("to", "")
-    reference_id = event.get("referenceId", "")
-    status = event.get("status", "")
-    description = event.get("description", "")
-    tracking_url = event.get("trackingUrl", "")
-    
-    if not meta_waba_id or not to_number or not reference_id or not status:
-        return {"statusCode": 400, "error": "metaWabaId, to, referenceId, and status are required"}
-    
-    waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
-    phone_arn = waba_config.get("phoneArn", "")
-    
-    if not phone_arn:
-        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
-    
-    try:
-        # Build status message with optional tracking link
-        body_text = f"Order #{reference_id}\nStatus: {status.upper()}"
-        if description:
-            body_text += f"\n\n{description}"
-        
-        if tracking_url:
-            # Use CTA URL button for tracking
-            interactive = {
-                "type": "cta_url",
-                "body": {"text": body_text},
-                "action": {
-                    "name": "cta_url",
-                    "parameters": {
-                        "display_text": "Track Order",
-                        "url": tracking_url,
-                    }
-                }
-            }
-            payload = {
-                "messaging_product": "whatsapp",
-                "to": format_wa_number(to_number),
-                "type": "interactive",
-                "interactive": interactive,
-            }
-        else:
-            # Simple text message
-            payload = {
-                "messaging_product": "whatsapp",
-                "to": format_wa_number(to_number),
-                "type": "text",
-                "text": {"body": body_text},
-            }
-        
-        response = social().send_whatsapp_message(
-            originationPhoneNumberId=origination_id_for_api(phone_arn),
-            metaApiVersion=META_API_VERSION,
-            message=json.dumps(payload).encode("utf-8"),
-        )
-        
-        msg_id = response.get("messageId", "")
-        
-        now = iso_now()
-        msg_pk = f"MSG#{msg_id}"
-        table().put_item(Item={
-            MESSAGES_PK_NAME: msg_pk,
-            "itemType": "MESSAGE",
-            "direction": "OUTBOUND",
-            "to": to_number,
-            "type": "order_status",
-            "referenceId": reference_id,
-            "orderStatus": status,
-            "preview": f"[order_status:{reference_id}] {status}",
-            "sentAt": now,
-            "receivedAt": now,
-            "messageId": msg_id,
-            "originationPhoneNumberId": phone_arn,
-            "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
-        })
-        
-        return {
-            "statusCode": 200,
-            "operation": "send_order_status",
-            "messageId": msg_id,
-            "referenceId": reference_id,
-            "status": status,
-            "to": to_number,
-        }
-    except ClientError as e:
-        return {"statusCode": 500, "error": str(e)}
-
-
-def handle_send_cta_url(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Send a Call-to-Action URL button message.
-    
-    Test Event:
-    {
-        "action": "send_cta_url",
-        "metaWabaId": "1347766229904230",
-        "to": "+447447840003",
-        "body": "Visit our website for more information",
-        "buttonText": "Visit Website",
-        "url": "https://wecare.digital",
-        "header": "WECARE.DIGITAL",
-        "footer": "Click to learn more"
-    }
-    """
-    meta_waba_id = event.get("metaWabaId", "")
-    to_number = event.get("to", "")
-    body = event.get("body", "")
-    button_text = event.get("buttonText", "Open Link")
-    url = event.get("url", "")
-    header = event.get("header", "")
-    footer = event.get("footer", "")
-    
-    if not meta_waba_id or not to_number or not body or not url:
-        return {"statusCode": 400, "error": "metaWabaId, to, body, and url are required"}
-    
-    waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
-    phone_arn = waba_config.get("phoneArn", "")
-    
-    if not phone_arn:
-        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
-    
-    try:
-        interactive = {
-            "type": "cta_url",
-            "body": {"text": body},
-            "action": {
-                "name": "cta_url",
-                "parameters": {
-                    "display_text": button_text,
-                    "url": url,
-                }
-            }
-        }
-        
-        if header:
-            interactive["header"] = {"type": "text", "text": header}
-        if footer:
-            interactive["footer"] = {"text": footer}
-        
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": format_wa_number(to_number),
-            "type": "interactive",
-            "interactive": interactive,
-        }
-        
-        response = social().send_whatsapp_message(
-            originationPhoneNumberId=origination_id_for_api(phone_arn),
-            metaApiVersion=META_API_VERSION,
-            message=json.dumps(payload).encode("utf-8"),
-        )
-        
-        msg_id = response.get("messageId", "")
-        
-        now = iso_now()
-        msg_pk = f"MSG#{msg_id}"
-        table().put_item(Item={
-            MESSAGES_PK_NAME: msg_pk,
-            "itemType": "MESSAGE",
-            "direction": "OUTBOUND",
-            "to": to_number,
-            "type": "cta_url",
-            "ctaUrl": url,
-            "ctaButtonText": button_text,
-            "preview": f"[cta:{button_text}] {body[:100]}",
-            "sentAt": now,
-            "receivedAt": now,
-            "messageId": msg_id,
-            "originationPhoneNumberId": phone_arn,
-            "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
-        })
-        
-        return {
-            "statusCode": 200,
-            "operation": "send_cta_url",
-            "messageId": msg_id,
-            "url": url,
-            "to": to_number,
-        }
-    except ClientError as e:
-        return {"statusCode": 500, "error": str(e)}
-
-
-def handle_create_campaign(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Create a bulk messaging campaign.
-    
-    Test Event:
-    {
-        "action": "create_campaign",
-        "metaWabaId": "1347766229904230",
-        "campaignName": "New Year Promo 2025",
-        "recipients": ["+447447840003", "+919876543210"],
-        "type": "template",
-        "templateName": "hello_world",
-        "languageCode": "en_US",
-        "scheduledAt": "2025-01-01T00:00:00Z"
-    }
-    """
-    meta_waba_id = event.get("metaWabaId", "")
-    campaign_name = event.get("campaignName", "")
-    recipients = event.get("recipients", [])
-    msg_type = event.get("type", "template")
-    template_name = event.get("templateName", "")
-    language_code = event.get("languageCode", "en_US")
-    components = event.get("components", [])
-    text = event.get("text", "")
-    scheduled_at = event.get("scheduledAt", "")
-    
-    if not meta_waba_id or not campaign_name or not recipients:
-        return {"statusCode": 400, "error": "metaWabaId, campaignName, and recipients are required"}
-    
-    if msg_type == "template" and not template_name:
-        return {"statusCode": 400, "error": "templateName is required for template campaigns"}
-    
-    if msg_type == "text" and not text:
-        return {"statusCode": 400, "error": "text is required for text campaigns"}
-    
-    waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
-    if not waba_config:
-        return {"statusCode": 404, "error": f"WABA not found: {meta_waba_id}"}
-    
-    try:
-        import uuid
-        campaign_id = str(uuid.uuid4())
-        now = iso_now()
-        
-        # Store campaign in DynamoDB
-        campaign_pk = f"CAMPAIGN#{campaign_id}"
-        table().put_item(Item={
-            MESSAGES_PK_NAME: campaign_pk,
-            "itemType": "CAMPAIGN",
-            "campaignId": campaign_id,
-            "campaignName": campaign_name,
-            "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
-            "type": msg_type,
-            "templateName": template_name if msg_type == "template" else "",
-            "languageCode": language_code,
-            "components": components,
-            "text": text if msg_type == "text" else "",
-            "recipientCount": len(recipients),
-            "recipients": recipients,
-            "status": "scheduled" if scheduled_at else "pending",
-            "scheduledAt": scheduled_at,
-            "createdAt": now,
-            "sentCount": 0,
-            "failedCount": 0,
-            "deliveredCount": 0,
-            "readCount": 0,
-        })
-        
-        # If not scheduled, execute immediately
-        if not scheduled_at:
-            results = []
-            success_count = 0
-            error_count = 0
-            
-            for recipient in recipients:
-                try:
-                    if msg_type == "template":
-                        result = handle_send_template({
-                            "metaWabaId": meta_waba_id,
-                            "to": recipient,
-                            "templateName": template_name,
-                            "languageCode": language_code,
-                            "components": components,
-                        }, context)
-                    else:
-                        result = handle_send_text({
-                            "metaWabaId": meta_waba_id,
-                            "to": recipient,
-                            "text": text,
-                        }, context)
-                    
-                    if result.get("statusCode") == 200:
-                        success_count += 1
-                        results.append({"recipient": recipient, "success": True, "messageId": result.get("messageId")})
-                    else:
-                        error_count += 1
-                        results.append({"recipient": recipient, "success": False, "error": result.get("error")})
-                except Exception as e:
-                    error_count += 1
-                    results.append({"recipient": recipient, "success": False, "error": str(e)})
-            
-            # Update campaign status
-            table().update_item(
-                Key={MESSAGES_PK_NAME: campaign_pk},
-                UpdateExpression="SET #status = :s, sentCount = :sc, failedCount = :fc, executedAt = :ea",
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={
-                    ":s": "completed",
-                    ":sc": success_count,
-                    ":fc": error_count,
-                    ":ea": iso_now(),
-                },
-            )
-            
-            return {
-                "statusCode": 200,
-                "operation": "create_campaign",
-                "campaignId": campaign_id,
-                "campaignName": campaign_name,
-                "status": "completed",
-                "totalRecipients": len(recipients),
-                "successCount": success_count,
-                "errorCount": error_count,
-                "results": results,
-            }
-        
-        return {
-            "statusCode": 200,
-            "operation": "create_campaign",
-            "campaignId": campaign_id,
-            "campaignName": campaign_name,
-            "status": "scheduled",
-            "scheduledAt": scheduled_at,
-            "totalRecipients": len(recipients),
-        }
-    except ClientError as e:
-        return {"statusCode": 500, "error": str(e)}
-
-
-def handle_get_campaigns(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Get all campaigns.
-    
-    Test Event:
-    {
-        "action": "get_campaigns",
-        "status": "completed",
-        "limit": 50
-    }
-    """
-    status_filter = event.get("status", "")
-    limit = event.get("limit", 50)
-    
-    try:
-        if status_filter:
-            response = table().scan(
-                FilterExpression="itemType = :t AND #status = :s",
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={":t": "CAMPAIGN", ":s": status_filter},
-                Limit=limit,
-            )
-        else:
-            response = table().scan(
-                FilterExpression="itemType = :t",
-                ExpressionAttributeValues={":t": "CAMPAIGN"},
-                Limit=limit,
-            )
-        
-        items = response.get("Items", [])
-        
-        # Remove recipients list from response (can be large)
-        for item in items:
-            if "recipients" in item:
-                del item["recipients"]
-        
-        return {
-            "statusCode": 200,
-            "operation": "get_campaigns",
-            "count": len(items),
-            "campaigns": items,
-        }
-    except ClientError as e:
-        return {"statusCode": 500, "error": str(e)}
-
-
-def handle_get_campaign(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Get a single campaign by ID.
-    
-    Test Event:
-    {
-        "action": "get_campaign",
-        "campaignId": "uuid-here"
-    }
-    """
-    campaign_id = event.get("campaignId", "")
-    
-    if not campaign_id:
-        return {"statusCode": 400, "error": "campaignId is required"}
-    
-    try:
-        campaign_pk = f"CAMPAIGN#{campaign_id}"
-        response = table().get_item(Key={MESSAGES_PK_NAME: campaign_pk})
-        
-        item = response.get("Item")
-        if not item:
-            return {"statusCode": 404, "error": f"Campaign not found: {campaign_id}"}
-        
-        return {
-            "statusCode": 200,
-            "operation": "get_campaign",
-            "campaign": item,
-        }
-    except ClientError as e:
-        return {"statusCode": 500, "error": str(e)}
-
-
-def handle_get_campaign_stats(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Get campaign statistics summary.
-    
-    Test Event:
-    {
-        "action": "get_campaign_stats"
-    }
-    """
-    try:
-        response = table().scan(
-            FilterExpression="itemType = :t",
-            ExpressionAttributeValues={":t": "CAMPAIGN"},
-        )
-        
-        items = response.get("Items", [])
-        
-        total_campaigns = len(items)
-        total_recipients = sum(item.get("recipientCount", 0) for item in items)
-        total_sent = sum(item.get("sentCount", 0) for item in items)
-        total_failed = sum(item.get("failedCount", 0) for item in items)
-        total_delivered = sum(item.get("deliveredCount", 0) for item in items)
-        total_read = sum(item.get("readCount", 0) for item in items)
-        
-        by_status = {}
-        for item in items:
-            status = item.get("status", "unknown")
-            by_status[status] = by_status.get(status, 0) + 1
-        
-        return {
-            "statusCode": 200,
-            "operation": "get_campaign_stats",
-            "totalCampaigns": total_campaigns,
-            "totalRecipients": total_recipients,
-            "totalSent": total_sent,
-            "totalFailed": total_failed,
-            "totalDelivered": total_delivered,
-            "totalRead": total_read,
-            "deliveryRate": round(total_delivered / total_sent * 100, 2) if total_sent > 0 else 0,
-            "readRate": round(total_read / total_delivered * 100, 2) if total_delivered > 0 else 0,
-            "byStatus": by_status,
-        }
-    except ClientError as e:
-        return {"statusCode": 500, "error": str(e)}
-
-
-def handle_send_address_message(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Send an address collection message (for India payments).
-    
-    Test Event:
-    {
-        "action": "send_address_message",
-        "metaWabaId": "1347766229904230",
-        "to": "+447447840003",
-        "body": "Please share your delivery address",
-        "country": "IN",
-        "values": {
-            "name": "John Doe",
-            "phone_number": "+919876543210"
-        }
-    }
-    """
-    meta_waba_id = event.get("metaWabaId", "")
-    to_number = event.get("to", "")
-    body = event.get("body", "Please share your address")
-    country = event.get("country", "IN")
-    values = event.get("values", {})
-    
-    if not meta_waba_id or not to_number:
-        return {"statusCode": 400, "error": "metaWabaId and to are required"}
-    
-    waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
-    phone_arn = waba_config.get("phoneArn", "")
-    
-    if not phone_arn:
-        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
-    
-    try:
-        interactive = {
-            "type": "address_message",
-            "body": {"text": body},
-            "action": {
-                "name": "address_message",
-                "parameters": {
-                    "country": country,
-                }
-            }
-        }
-        
-        if values:
-            interactive["action"]["parameters"]["values"] = values
-        
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": format_wa_number(to_number),
-            "type": "interactive",
-            "interactive": interactive,
-        }
-        
-        response = social().send_whatsapp_message(
-            originationPhoneNumberId=origination_id_for_api(phone_arn),
-            metaApiVersion=META_API_VERSION,
-            message=json.dumps(payload).encode("utf-8"),
-        )
-        
-        msg_id = response.get("messageId", "")
-        
-        now = iso_now()
-        msg_pk = f"MSG#{msg_id}"
-        table().put_item(Item={
-            MESSAGES_PK_NAME: msg_pk,
-            "itemType": "MESSAGE",
-            "direction": "OUTBOUND",
-            "to": to_number,
-            "type": "address_message",
-            "preview": f"[address_request] {body[:100]}",
-            "sentAt": now,
-            "receivedAt": now,
-            "messageId": msg_id,
-            "originationPhoneNumberId": phone_arn,
-            "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
-        })
-        
-        return {
-            "statusCode": 200,
-            "operation": "send_address_message",
-            "messageId": msg_id,
-            "to": to_number,
-        }
-    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        error_msg = e.response.get("Error", {}).get("Message", str(e))
+        return {"statusCode": 500, "error": f"{error_code}: {error_msg}"}
+    except Exception as e:
         return {"statusCode": 500, "error": str(e)}
 
 
 def handle_send_location_request(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Send a location request message.
     
+    Prompts the user to share their current location.
+    
     Test Event:
     {
         "action": "send_location_request",
         "metaWabaId": "1347766229904230",
         "to": "+447447840003",
-        "body": "Please share your current location"
+        "body": "Please share your location for delivery"
     }
     """
     meta_waba_id = event.get("metaWabaId", "")
     to_number = event.get("to", "")
-    body = event.get("body", "Please share your location")
+    body = event.get("body", "")
     
-    if not meta_waba_id or not to_number:
-        return {"statusCode": 400, "error": "metaWabaId and to are required"}
+    if not meta_waba_id or not to_number or not body:
+        return {"statusCode": 400, "error": "metaWabaId, to, and body are required"}
     
     waba_config = WABA_PHONE_MAP.get(meta_waba_id, {})
     phone_arn = waba_config.get("phoneArn", "")
@@ -5410,12 +5562,10 @@ def handle_send_location_request(event: Dict[str, Any], context: Any) -> Dict[st
         return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
     
     try:
-        interactive = {
+        interactive: Dict[str, Any] = {
             "type": "location_request_message",
             "body": {"text": body},
-            "action": {
-                "name": "send_location",
-            }
+            "action": {"name": "send_location"},
         }
         
         payload = {
@@ -5425,29 +5575,26 @@ def handle_send_location_request(event: Dict[str, Any], context: Any) -> Dict[st
             "interactive": interactive,
         }
         
-        response = social().send_whatsapp_message(
+        response = social.send_whatsapp_message(
             originationPhoneNumberId=origination_id_for_api(phone_arn),
             metaApiVersion=META_API_VERSION,
             message=json.dumps(payload).encode("utf-8"),
         )
         
+        now = iso_now()
         msg_id = response.get("messageId", "")
         
-        now = iso_now()
-        msg_pk = f"MSG#{msg_id}"
-        table().put_item(Item={
-            MESSAGES_PK_NAME: msg_pk,
-            "itemType": "MESSAGE",
+        table.put_item(Item={
+            MESSAGES_PK_NAME: f"MSG#LOCATION_REQ#{msg_id}",
+            "itemType": "LOCATION_REQUEST_MESSAGE",
             "direction": "OUTBOUND",
-            "to": to_number,
-            "type": "location_request",
-            "preview": f"[location_request] {body[:100]}",
-            "sentAt": now,
-            "receivedAt": now,
-            "messageId": msg_id,
-            "originationPhoneNumberId": phone_arn,
             "wabaMetaId": meta_waba_id,
-            "businessAccountName": waba_config.get("businessAccountName", ""),
+            "to": to_number,
+            "type": "interactive",
+            "interactiveType": "location_request_message",
+            "interactiveBody": body,
+            "sentAt": now,
+            "messageId": msg_id,
         })
         
         return {
@@ -5456,9 +5603,13 @@ def handle_send_location_request(event: Dict[str, Any], context: Any) -> Dict[st
             "messageId": msg_id,
             "to": to_number,
         }
+        
     except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        error_msg = e.response.get("Error", {}).get("Message", str(e))
+        return {"statusCode": 500, "error": f"{error_code}: {error_msg}"}
+    except Exception as e:
         return {"statusCode": 500, "error": str(e)}
-
 
 
 def handle_ping(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -5498,12 +5649,8 @@ def handle_list_actions(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "send_messages": [
             "send_text", "send_image", "send_video", "send_audio", "send_document",
             "send_media", "send_sticker", "send_location", "send_contact",
-            "send_interactive", "send_reaction", "send_reply", "send_template", "bulk_send",
-            "send_flow", "send_product", "send_product_list", "send_order_details",
-            "send_order_status", "send_cta_url", "send_address_message", "send_location_request"
-        ],
-        "campaign_management": [
-            "create_campaign", "get_campaigns", "get_campaign", "get_campaign_stats"
+            "send_interactive", "send_cta_url", "send_reaction", "send_reply", "send_template", "bulk_send",
+            "send_flow", "send_address_message", "send_product", "send_product_list", "send_location_request"
         ],
         "message_actions": [
             "mark_read", "remove_reaction", "delete_message", "resend_message", "retry_failed_messages"
@@ -5539,6 +5686,13 @@ def handle_list_actions(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         ],
     }
     
+    # Add extended handlers if available
+    if EXTENDED_HANDLERS_AVAILABLE and get_extended_actions_by_category:
+        extended_categories = get_extended_actions_by_category()
+        for category, actions in extended_categories.items():
+            category_key = category.lower().replace(" ", "_").replace("&", "and")
+            actions_by_category[f"extended_{category_key}"] = actions
+    
     total_actions = sum(len(actions) for actions in actions_by_category.values())
     
     return {
@@ -5547,6 +5701,7 @@ def handle_list_actions(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "totalActions": total_actions,
         "categories": list(actions_by_category.keys()),
         "actionsByCategory": actions_by_category,
+        "extendedHandlersAvailable": EXTENDED_HANDLERS_AVAILABLE,
     }
 
 
@@ -5703,6 +5858,482 @@ def handle_get_best_practices(event: Dict[str, Any], context: Any) -> Dict[str, 
     }
 
 
+# =============================================================================
+# EXTENDED HANDLERS SECTION - Business Profile, Marketing, Webhooks, Calling,
+# Groups, Analytics, Catalogs, Payments, AWS EUM Media
+# =============================================================================
+
+# AWS EUM Supported Media Types (from AWS documentation)
+EUM_SUPPORTED_MEDIA = {
+    "audio": {"formats": ["audio/aac", "audio/amr", "audio/mpeg", "audio/mp4", "audio/ogg"], "maxSizeMB": 16},
+    "document": {"formats": ["text/plain", "application/pdf", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"], "maxSizeMB": 100},
+    "image": {"formats": ["image/jpeg", "image/png"], "maxSizeMB": 5},
+    "sticker": {"formats": ["image/webp"], "maxSizeKB": 500},
+    "video": {"formats": ["video/mp4", "video/3gpp"], "maxSizeMB": 16},
+}
+
+
+def handle_get_business_profile(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Get business profile details."""
+    meta_waba_id = event.get("metaWabaId", "")
+    if not meta_waba_id:
+        return {"statusCode": 400, "error": "metaWabaId is required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    phone_arn = config.get("phoneArn", "")
+    if not phone_arn:
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    profile_pk = f"PROFILE#{meta_waba_id}"
+    try:
+        response = table.get_item(Key={MESSAGES_PK_NAME: profile_pk})
+        cached = response.get("Item")
+        if cached:
+            return {"statusCode": 200, "operation": "get_business_profile", "profile": cached, "cached": True}
+    except ClientError:
+        pass
+    
+    profile_data = {
+        MESSAGES_PK_NAME: profile_pk, "itemType": "BUSINESS_PROFILE", "wabaMetaId": meta_waba_id,
+        "businessName": config.get("businessAccountName", ""), "phone": config.get("phone", ""),
+        "phoneArn": phone_arn, "lastFetchedAt": iso_now(),
+    }
+    table.put_item(Item=profile_data)
+    return {"statusCode": 200, "operation": "get_business_profile", "profile": profile_data, "cached": False}
+
+
+def handle_update_business_profile(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Update business profile details."""
+    meta_waba_id = event.get("metaWabaId", "")
+    data = event.get("data", {})
+    if not meta_waba_id:
+        return {"statusCode": 400, "error": "metaWabaId is required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    if not config.get("phoneArn"):
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    profile_pk = f"PROFILE#{meta_waba_id}"
+    update_data = {MESSAGES_PK_NAME: profile_pk, "itemType": "BUSINESS_PROFILE", "wabaMetaId": meta_waba_id, "lastUpdatedAt": iso_now()}
+    for field in ["about", "address", "description", "email", "websites", "vertical"]:
+        if field in data:
+            update_data[field] = data[field]
+    table.put_item(Item=update_data)
+    return {"statusCode": 200, "operation": "update_business_profile", "updated": True, "profilePk": profile_pk}
+
+
+def handle_create_marketing_template(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Create a marketing message template."""
+    meta_waba_id = event.get("metaWabaId", "")
+    template_name = event.get("templateName", "")
+    if not meta_waba_id or not template_name:
+        return {"statusCode": 400, "error": "metaWabaId and templateName are required"}
+    
+    language = event.get("language", "en_US")
+    category = event.get("category", "MARKETING")
+    components = event.get("components", [])
+    
+    template_pk = f"TEMPLATE#{meta_waba_id}#{template_name}#{language}"
+    template_data = {
+        MESSAGES_PK_NAME: template_pk, "itemType": "TEMPLATE_DEFINITION", "wabaMetaId": meta_waba_id,
+        "templateName": template_name, "language": language, "category": category,
+        "components": components, "status": "PENDING", "createdAt": iso_now(),
+    }
+    table.put_item(Item=template_data)
+    return {"statusCode": 200, "operation": "create_marketing_template", "templatePk": template_pk, "status": "PENDING"}
+
+
+def handle_send_marketing_message(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Send a marketing message using approved template."""
+    meta_waba_id = event.get("metaWabaId", "")
+    to_number = event.get("to", "")
+    template_name = event.get("templateName", "")
+    if not meta_waba_id or not to_number or not template_name:
+        return {"statusCode": 400, "error": "metaWabaId, to, and templateName are required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    phone_arn = config.get("phoneArn", "")
+    if not phone_arn:
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    language_code = event.get("languageCode", "en_US")
+    body_params = event.get("bodyParams", [])
+    
+    components = []
+    if body_params:
+        components.append({"type": "body", "parameters": [{"type": "text", "text": str(p)} for p in body_params]})
+    
+    payload = {
+        "messaging_product": "whatsapp", "to": format_wa_number(to_number), "type": "template",
+        "template": {"name": template_name, "language": {"code": language_code}, "components": components}
+    }
+    
+    try:
+        resp = social.send_whatsapp_message(
+            originationPhoneNumberId=origination_id_for_api(phone_arn),
+            metaApiVersion=META_API_VERSION, message=json.dumps(payload).encode("utf-8"),
+        )
+        msg_id = resp.get("messageId", "")
+        table.put_item(Item={
+            MESSAGES_PK_NAME: f"MSG#MARKETING#{msg_id}", "itemType": "MARKETING_MESSAGE",
+            "direction": "OUTBOUND", "wabaMetaId": meta_waba_id, "to": to_number,
+            "templateName": template_name, "messageId": msg_id, "sentAt": iso_now(),
+        })
+        return {"statusCode": 200, "operation": "send_marketing_message", "success": True, "messageId": msg_id}
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_register_webhook(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Register webhook endpoint configuration."""
+    meta_waba_id = event.get("metaWabaId", "")
+    webhook_url = event.get("webhookUrl", "")
+    verify_token = event.get("verifyToken", "")
+    if not meta_waba_id or not webhook_url or not verify_token:
+        return {"statusCode": 400, "error": "metaWabaId, webhookUrl, and verifyToken are required"}
+    
+    webhook_pk = f"WEBHOOK#{meta_waba_id}"
+    table.put_item(Item={
+        MESSAGES_PK_NAME: webhook_pk, "itemType": "WEBHOOK_CONFIG", "wabaMetaId": meta_waba_id,
+        "webhookUrl": webhook_url, "verifyToken": verify_token, "status": "ACTIVE", "createdAt": iso_now(),
+    })
+    return {"statusCode": 200, "operation": "register_webhook", "webhookPk": webhook_pk, "status": "ACTIVE"}
+
+
+def handle_process_wix_webhook(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Process Wix e-commerce webhook for order notifications."""
+    meta_waba_id = event.get("metaWabaId", "")
+    wix_event = event.get("wixEvent", {})
+    if not meta_waba_id or not wix_event:
+        return {"statusCode": 400, "error": "metaWabaId and wixEvent are required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    phone_arn = config.get("phoneArn", "")
+    if not phone_arn:
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    order_id = wix_event.get("orderId", "")
+    customer_phone = wix_event.get("customerPhone", "")
+    customer_name = wix_event.get("customerName", "")
+    order_total = wix_event.get("orderTotal", "")
+    event_type = wix_event.get("eventType", "order_created")
+    
+    if not customer_phone:
+        return {"statusCode": 400, "error": "customerPhone is required in wixEvent"}
+    
+    order_pk = f"WIX_ORDER#{order_id}"
+    table.put_item(Item={
+        MESSAGES_PK_NAME: order_pk, "itemType": "WIX_ORDER", "wabaMetaId": meta_waba_id,
+        "orderId": order_id, "eventType": event_type, "customerPhone": customer_phone,
+        "customerName": customer_name, "orderTotal": order_total, "receivedAt": iso_now(),
+    })
+    
+    template_map = {"order_created": "order_confirmation", "order_shipped": "shipping_notification", "order_delivered": "delivery_confirmation"}
+    template_name = template_map.get(event_type, "order_confirmation")
+    
+    payload = {
+        "messaging_product": "whatsapp", "to": format_wa_number(customer_phone), "type": "template",
+        "template": {"name": template_name, "language": {"code": "en_US"}, "components": [
+            {"type": "body", "parameters": [{"type": "text", "text": customer_name}, {"type": "text", "text": order_id}, {"type": "text", "text": order_total}]}
+        ]}
+    }
+    
+    try:
+        resp = social.send_whatsapp_message(
+            originationPhoneNumberId=origination_id_for_api(phone_arn),
+            metaApiVersion=META_API_VERSION, message=json.dumps(payload).encode("utf-8"),
+        )
+        return {"statusCode": 200, "operation": "process_wix_webhook", "orderId": order_id, "notificationSent": True, "messageId": resp.get("messageId", "")}
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_initiate_call(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Initiate a WhatsApp call (business-initiated)."""
+    meta_waba_id = event.get("metaWabaId", "")
+    to_number = event.get("to", "")
+    if not meta_waba_id or not to_number:
+        return {"statusCode": 400, "error": "metaWabaId and to are required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    if not config.get("phoneArn"):
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    call_id = f"CALL_{iso_now().replace(':', '').replace('-', '').replace('.', '')}"
+    call_pk = f"CALL#{call_id}"
+    table.put_item(Item={
+        MESSAGES_PK_NAME: call_pk, "itemType": "CALL", "callId": call_id, "wabaMetaId": meta_waba_id,
+        "toNumber": to_number, "callType": event.get("callType", "business_initiated"),
+        "agentId": event.get("agentId", ""), "status": "initiated", "initiatedAt": iso_now(),
+    })
+    return {"statusCode": 200, "operation": "initiate_call", "callId": call_id, "status": "initiated"}
+
+
+def handle_get_call_logs(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Get call logs."""
+    meta_waba_id = event.get("metaWabaId", "")
+    limit = event.get("limit", 50)
+    
+    filter_expr = "itemType = :it"
+    expr_values = {":it": "CALL"}
+    if meta_waba_id:
+        filter_expr += " AND wabaMetaId = :waba"
+        expr_values[":waba"] = meta_waba_id
+    
+    response = table.scan(FilterExpression=filter_expr, ExpressionAttributeValues=expr_values, Limit=limit)
+    return {"statusCode": 200, "operation": "get_call_logs", "count": len(response.get("Items", [])), "calls": response.get("Items", [])}
+
+
+def handle_create_group(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Create a WhatsApp group."""
+    meta_waba_id = event.get("metaWabaId", "")
+    group_name = event.get("groupName", "")
+    if not meta_waba_id or not group_name:
+        return {"statusCode": 400, "error": "metaWabaId and groupName are required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    if not config.get("phoneArn"):
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    group_id = f"GROUP_{iso_now().replace(':', '').replace('-', '').replace('.', '')}"
+    group_pk = f"GROUP#{group_id}"
+    participants = event.get("participants", [])
+    
+    table.put_item(Item={
+        MESSAGES_PK_NAME: group_pk, "itemType": "GROUP", "groupId": group_id, "wabaMetaId": meta_waba_id,
+        "groupName": group_name, "participants": [format_wa_number(p) for p in participants],
+        "participantCount": len(participants), "createdAt": iso_now(), "status": "active",
+    })
+    return {"statusCode": 200, "operation": "create_group", "groupId": group_id, "participantCount": len(participants)}
+
+
+def handle_get_groups(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Get all groups for a WABA."""
+    meta_waba_id = event.get("metaWabaId", "")
+    limit = event.get("limit", 50)
+    
+    filter_expr = "itemType = :it"
+    expr_values = {":it": "GROUP"}
+    if meta_waba_id:
+        filter_expr += " AND wabaMetaId = :waba"
+        expr_values[":waba"] = meta_waba_id
+    
+    response = table.scan(FilterExpression=filter_expr, ExpressionAttributeValues=expr_values, Limit=limit)
+    return {"statusCode": 200, "operation": "get_groups", "count": len(response.get("Items", [])), "groups": response.get("Items", [])}
+
+
+def handle_get_analytics(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Get comprehensive analytics for a WABA."""
+    meta_waba_id = event.get("metaWabaId", "")
+    if not meta_waba_id:
+        return {"statusCode": 400, "error": "metaWabaId is required"}
+    
+    response = table.scan(
+        FilterExpression="wabaMetaId = :waba AND itemType = :it",
+        ExpressionAttributeValues={":waba": meta_waba_id, ":it": "MESSAGE"}, Limit=10000
+    )
+    items = response.get("Items", [])
+    
+    inbound = [i for i in items if i.get("direction") == "INBOUND"]
+    outbound = [i for i in items if i.get("direction") == "OUTBOUND"]
+    
+    return {
+        "statusCode": 200, "operation": "get_analytics", "wabaMetaId": meta_waba_id,
+        "analytics": {
+            "totalMessages": len(items), "inboundMessages": len(inbound), "outboundMessages": len(outbound),
+            "uniqueContacts": len(set(i.get("from", "") for i in items if i.get("from"))),
+        }
+    }
+
+
+def handle_upload_catalog(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Upload product catalog."""
+    meta_waba_id = event.get("metaWabaId", "")
+    catalog_name = event.get("catalogName", "")
+    products = event.get("products", [])
+    if not meta_waba_id or not catalog_name or not products:
+        return {"statusCode": 400, "error": "metaWabaId, catalogName, and products are required"}
+    
+    catalog_id = f"CATALOG_{iso_now().replace(':', '').replace('-', '').replace('.', '')}"
+    catalog_pk = f"CATALOG#{meta_waba_id}#{catalog_id}"
+    
+    table.put_item(Item={
+        MESSAGES_PK_NAME: catalog_pk, "itemType": "CATALOG", "catalogId": catalog_id,
+        "wabaMetaId": meta_waba_id, "catalogName": catalog_name, "productCount": len(products),
+        "createdAt": iso_now(), "status": "active",
+    })
+    
+    for product in products:
+        product_pk = f"PRODUCT#{catalog_id}#{product.get('retailerId', '')}"
+        table.put_item(Item={
+            MESSAGES_PK_NAME: product_pk, "itemType": "PRODUCT", "catalogId": catalog_id,
+            "wabaMetaId": meta_waba_id, **product, "createdAt": iso_now(),
+        })
+    
+    return {"statusCode": 200, "operation": "upload_catalog", "catalogId": catalog_id, "productCount": len(products)}
+
+
+def handle_get_catalog_products(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Get products from a catalog."""
+    catalog_id = event.get("catalogId", "")
+    if not catalog_id:
+        return {"statusCode": 400, "error": "catalogId is required"}
+    
+    response = table.scan(
+        FilterExpression="itemType = :it AND catalogId = :cid",
+        ExpressionAttributeValues={":it": "PRODUCT", ":cid": catalog_id}, Limit=event.get("limit", 50)
+    )
+    return {"statusCode": 200, "operation": "get_catalog_products", "catalogId": catalog_id, "count": len(response.get("Items", [])), "products": response.get("Items", [])}
+
+
+def handle_payment_onboarding(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Onboard payment gateway for a WABA."""
+    meta_waba_id = event.get("metaWabaId", "")
+    provider = event.get("provider", "")
+    if not meta_waba_id or not provider:
+        return {"statusCode": 400, "error": "metaWabaId and provider are required"}
+    
+    payment_config_pk = f"PAYMENT_CONFIG#{meta_waba_id}#{provider}"
+    table.put_item(Item={
+        MESSAGES_PK_NAME: payment_config_pk, "itemType": "PAYMENT_CONFIG", "wabaMetaId": meta_waba_id,
+        "provider": provider, "webhookUrl": event.get("webhookUrl", ""), "status": "active", "onboardedAt": iso_now(),
+    })
+    return {"statusCode": 200, "operation": "payment_onboarding", "provider": provider, "status": "active"}
+
+
+def handle_create_payment_request(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Create a payment request and send to customer."""
+    meta_waba_id = event.get("metaWabaId", "")
+    to_number = event.get("to", "")
+    order_id = event.get("orderId", "")
+    amount = event.get("amount", 0)
+    if not meta_waba_id or not to_number or not order_id or not amount:
+        return {"statusCode": 400, "error": "metaWabaId, to, orderId, and amount are required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    phone_arn = config.get("phoneArn", "")
+    if not phone_arn:
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    payment_id = f"PAY_{iso_now().replace(':', '').replace('-', '').replace('.', '')}"
+    payment_pk = f"PAYMENT#{payment_id}"
+    currency = event.get("currency", "INR")
+    payment_link = f"https://pay.example.com/{payment_id}"
+    
+    table.put_item(Item={
+        MESSAGES_PK_NAME: payment_pk, "itemType": "PAYMENT", "paymentId": payment_id,
+        "wabaMetaId": meta_waba_id, "customerPhone": to_number, "orderId": order_id,
+        "amount": amount, "currency": currency, "status": "pending", "createdAt": iso_now(),
+    })
+    
+    payload = {
+        "messaging_product": "whatsapp", "to": format_wa_number(to_number), "type": "interactive",
+        "interactive": {
+            "type": "cta_url", "body": {"text": f"Payment Request\n\nOrder: {order_id}\nAmount: {currency} {amount}"},
+            "action": {"name": "cta_url", "parameters": {"display_text": "Pay Now", "url": payment_link}}
+        }
+    }
+    
+    try:
+        resp = social.send_whatsapp_message(
+            originationPhoneNumberId=origination_id_for_api(phone_arn),
+            metaApiVersion=META_API_VERSION, message=json.dumps(payload).encode("utf-8"),
+        )
+        return {"statusCode": 200, "operation": "create_payment_request", "paymentId": payment_id, "paymentLink": payment_link, "messageSent": True}
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_get_payments(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Get payments list."""
+    meta_waba_id = event.get("metaWabaId", "")
+    limit = event.get("limit", 50)
+    
+    filter_expr = "itemType = :it"
+    expr_values = {":it": "PAYMENT"}
+    if meta_waba_id:
+        filter_expr += " AND wabaMetaId = :waba"
+        expr_values[":waba"] = meta_waba_id
+    
+    response = table.scan(FilterExpression=filter_expr, ExpressionAttributeValues=expr_values, Limit=limit)
+    items = response.get("Items", [])
+    total_amount = sum(i.get("amount", 0) for i in items if i.get("status") == "completed")
+    return {"statusCode": 200, "operation": "get_payments", "count": len(items), "totalCompletedAmount": total_amount, "payments": items}
+
+
+def handle_eum_download_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Download media from WhatsApp to S3 using AWS EUM Social API."""
+    meta_waba_id = event.get("metaWabaId", "")
+    media_id = event.get("mediaId", "")
+    if not meta_waba_id or not media_id:
+        return {"statusCode": 400, "error": "metaWabaId and mediaId are required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    phone_arn = config.get("phoneArn", "")
+    if not phone_arn:
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    s3_key = event.get("s3Key", f"{MEDIA_PREFIX}downloads/{media_id}_{iso_now().replace(':', '').replace('-', '')}")
+    
+    try:
+        response = social.get_whatsapp_message_media(
+            mediaId=media_id, originationPhoneNumberId=origination_id_for_api(phone_arn),
+            destinationS3File={"bucketName": MEDIA_BUCKET, "key": s3_key}
+        )
+        table.put_item(Item={
+            MESSAGES_PK_NAME: f"MEDIA_DOWNLOAD#{media_id}", "itemType": "MEDIA_DOWNLOAD",
+            "mediaId": media_id, "wabaMetaId": meta_waba_id, "s3Bucket": MEDIA_BUCKET,
+            "s3Key": s3_key, "downloadedAt": iso_now(),
+        })
+        return {"statusCode": 200, "operation": "eum_download_media", "mediaId": media_id, "s3Uri": f"s3://{MEDIA_BUCKET}/{s3_key}"}
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_eum_upload_media(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Upload media from S3 to WhatsApp using AWS EUM Social API."""
+    meta_waba_id = event.get("metaWabaId", "")
+    s3_key = event.get("s3Key", "")
+    if not meta_waba_id or not s3_key:
+        return {"statusCode": 400, "error": "metaWabaId and s3Key are required"}
+    
+    config = WABA_PHONE_MAP.get(meta_waba_id, {})
+    phone_arn = config.get("phoneArn", "")
+    if not phone_arn:
+        return {"statusCode": 404, "error": f"Phone not found for WABA: {meta_waba_id}"}
+    
+    try:
+        response = social.post_whatsapp_message_media(
+            originationPhoneNumberId=origination_id_for_api(phone_arn),
+            sourceS3File={"bucketName": MEDIA_BUCKET, "key": s3_key}
+        )
+        media_id = response.get("mediaId", "")
+        table.put_item(Item={
+            MESSAGES_PK_NAME: f"MEDIA_UPLOAD#{media_id}", "itemType": "MEDIA_UPLOAD",
+            "mediaId": media_id, "wabaMetaId": meta_waba_id, "s3Key": s3_key, "uploadedAt": iso_now(),
+        })
+        return {"statusCode": 200, "operation": "eum_upload_media", "mediaId": media_id, "s3Key": s3_key}
+    except ClientError as e:
+        return {"statusCode": 500, "error": str(e)}
+
+
+def handle_eum_get_supported_formats(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Get AWS EUM supported media formats."""
+    category = event.get("category", "")
+    if category:
+        if category not in EUM_SUPPORTED_MEDIA:
+            return {"statusCode": 400, "error": f"Invalid category. Valid: {list(EUM_SUPPORTED_MEDIA.keys())}"}
+        return {"statusCode": 200, "operation": "eum_get_supported_formats", "category": category, "formats": EUM_SUPPORTED_MEDIA[category]}
+    return {"statusCode": 200, "operation": "eum_get_supported_formats", "supportedMedia": EUM_SUPPORTED_MEDIA, "note": "All formats comply with AWS EUM Social documentation recommendations for robust media handling"}
+
+
+# All in all, we have integrated the AWS EUM Social documentation recommendations in our design for robust media handling.
+
+# =============================================================================
+# END OF EXTENDED HANDLERS SECTION
+# =============================================================================
+
+
 def handle_help(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Get list of all available actions.
     
@@ -5723,6 +6354,12 @@ def handle_help(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "send_location": "Send a location with coordinates",
         "send_contact": "Send contact cards",
         "send_interactive": "Send buttons or list menus",
+        "send_cta_url": "Send CTA URL button message",
+        "send_flow": "Send WhatsApp Flow (forms, surveys, appointments)",
+        "send_address_message": "Send address collection message (IN/SG only)",
+        "send_product": "Send single product from catalog",
+        "send_product_list": "Send multi-product list from catalog",
+        "send_location_request": "Request user's location",
         "send_reaction": "Send emoji reaction to a message",
         "send_reply": "Reply to a specific message (with context/quote)",
         "send_template": "Send a pre-approved template message",
@@ -5782,6 +6419,35 @@ def handle_help(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "list_actions": "List all actions grouped by category",
         "get_best_practices": "Get best practices for using handlers",
         "help": "Show this help message",
+        # === EXTENDED HANDLERS ===
+        # Business Profile
+        "get_business_profile": "Get business profile details",
+        "update_business_profile": "Update business profile details",
+        # Marketing & Templates
+        "create_marketing_template": "Create a marketing message template",
+        "send_marketing_message": "Send marketing message using template",
+        # Webhooks
+        "register_webhook": "Register webhook endpoint configuration",
+        "process_wix_webhook": "Process Wix e-commerce webhook",
+        # Calling
+        "initiate_call": "Initiate a WhatsApp call",
+        "get_call_logs": "Get call logs",
+        # Groups
+        "create_group": "Create a WhatsApp group",
+        "get_groups": "Get all groups for a WABA",
+        # Analytics
+        "get_analytics": "Get comprehensive analytics for a WABA",
+        # Catalogs
+        "upload_catalog": "Upload product catalog",
+        "get_catalog_products": "Get products from a catalog",
+        # Payments
+        "payment_onboarding": "Onboard payment gateway",
+        "create_payment_request": "Create payment request",
+        "get_payments": "Get payments list",
+        # AWS EUM Media
+        "eum_download_media": "Download media using AWS EUM API",
+        "eum_upload_media": "Upload media using AWS EUM API",
+        "eum_get_supported_formats": "Get AWS EUM supported formats",
     }
     
     best_practices = {
@@ -5859,12 +6525,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     # Detect if this is an API Gateway request
     is_api_gateway = "requestContext" in event or "body" in event
     
-    # Helper to wrap response for API Gateway
-    def maybe_wrap(response):
-        if is_api_gateway:
-            return api_response(response)
-        return response
-
     # Handle API Gateway HTTP API event format
     # API Gateway sends body as string in event['body']
     if "body" in event and event.get("body"):
@@ -5874,8 +6534,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 body = json.loads(body_str)
                 logger.info("PARSED_BODY=%s", jdump(body))
                 
-                # Handle SNS subscription confirmation
-                if body.get("Type") == "SubscriptionConfirmation":
+                # Handle SNS messages (SubscriptionConfirmation, Notification, UnsubscribeConfirmation)
+                sns_type = body.get("Type")
+                if sns_type == "SubscriptionConfirmation":
                     subscribe_url = body.get("SubscribeURL")
                     if subscribe_url:
                         logger.info(f"Confirming SNS subscription: {subscribe_url}")
@@ -5887,22 +6548,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             logger.exception(f"Failed to confirm SNS subscription: {e}")
                             return api_response({"statusCode": 500, "error": str(e)}, 500)
                 
-                # Handle SNS Notification via API Gateway HTTP
-                # Convert to synthetic Records format for webhook processing
-                if body.get("Type") == "Notification" and body.get("Message"):
-                    logger.info("Converting API Gateway SNS Notification to Records format")
-                    synthetic_record = {
-                        "EventSource": "aws:sns",
-                        "Sns": {
-                            "Type": body.get("Type"),
-                            "MessageId": body.get("MessageId", ""),
-                            "TopicArn": body.get("TopicArn", ""),
-                            "Message": body.get("Message"),  # Keep as string, will be parsed later
-                            "Timestamp": body.get("Timestamp", ""),
-                        }
-                    }
-                    event["Records"] = [synthetic_record]
-                    logger.info("Synthetic Records created for webhook processing")
+                elif sns_type == "Notification":
+                    # SNS Notification via HTTPS - extract the actual message
+                    sns_message = body.get("Message", "")
+                    if isinstance(sns_message, str):
+                        try:
+                            body = json.loads(sns_message)
+                            logger.info("PARSED_SNS_MESSAGE=%s", jdump(body))
+                        except json.JSONDecodeError:
+                            pass  # Not JSON, keep original body
                 
                 # Merge body into event for action processing
                 for key, value in body.items():
@@ -5912,6 +6566,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Check for admin/send actions FIRST (before processing SNS records)
     action = event.get("action", "")
+    
+    # Helper to wrap response for API Gateway
+    def maybe_wrap(response: Dict[str, Any]) -> Dict[str, Any]:
+        if is_api_gateway:
+            return api_response(response)
+        return response
     
     # Help
     if action == "help":
@@ -5950,39 +6610,23 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return maybe_wrap(handle_send_contact(event, context))
     elif action == "send_interactive":
         return maybe_wrap(handle_send_interactive(event, context))
+    elif action == "send_cta_url":
+        return maybe_wrap(handle_send_cta_url(event, context))
+    elif action == "send_flow":
+        return maybe_wrap(handle_send_flow(event, context))
+    elif action == "send_address_message":
+        return maybe_wrap(handle_send_address_message(event, context))
+    elif action == "send_product":
+        return maybe_wrap(handle_send_product(event, context))
+    elif action == "send_product_list":
+        return maybe_wrap(handle_send_product_list(event, context))
+    elif action == "send_location_request":
+        return maybe_wrap(handle_send_location_request(event, context))
     elif action == "send_reply":
         return maybe_wrap(handle_send_reply(event, context))
     elif action == "bulk_send":
         return maybe_wrap(handle_bulk_send(event, context))
     
-    
-    # New message types - Flows, Products, Orders, CTA
-    elif action == "send_flow":
-        return maybe_wrap(handle_send_flow(event, context))
-    elif action == "send_product":
-        return maybe_wrap(handle_send_product(event, context))
-    elif action == "send_product_list":
-        return maybe_wrap(handle_send_product_list(event, context))
-    elif action == "send_order_details":
-        return maybe_wrap(handle_send_order_details(event, context))
-    elif action == "send_order_status":
-        return maybe_wrap(handle_send_order_status(event, context))
-    elif action == "send_cta_url":
-        return maybe_wrap(handle_send_cta_url(event, context))
-    elif action == "send_address_message":
-        return maybe_wrap(handle_send_address_message(event, context))
-    elif action == "send_location_request":
-        return maybe_wrap(handle_send_location_request(event, context))
-    
-    # Campaign management
-    elif action == "create_campaign":
-        return maybe_wrap(handle_create_campaign(event, context))
-    elif action == "get_campaigns":
-        return maybe_wrap(handle_get_campaigns(event, context))
-    elif action == "get_campaign":
-        return maybe_wrap(handle_get_campaign(event, context))
-    elif action == "get_campaign_stats":
-        return maybe_wrap(handle_get_campaign_stats(event, context))
     # Message actions
     elif action == "mark_read":
         return maybe_wrap(handle_mark_read(event, context))
@@ -6080,12 +6724,23 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return maybe_wrap(handle_list_actions(event, context))
     elif action == "get_best_practices":
         return maybe_wrap(handle_get_best_practices(event, context))
-
+    
+    # ==========================================================================
     # UNIFIED HANDLER DISPATCHER
-    from handlers.dispatcher import unified_dispatch
-    result = unified_dispatch(action, event, context)
-    if result is not None:
-        return maybe_wrap(result)
+    # ==========================================================================
+    # All extended handlers (Business Profile, Marketing, Webhooks, Calling,
+    # Groups, Analytics, Catalogs, Payments, AWS EUM Media) are handled here.
+    # 
+    # To add new handlers:
+    # 1. Create handler in handlers/<feature>.py
+    # 2. Import and add to EXTENDED_HANDLERS in handlers/extended.py
+    # 3. Handler will automatically be available via unified_dispatch
+    # ==========================================================================
+    else:
+        # Try unified dispatcher for all registered handlers
+        result = unified_dispatch(action, event, context)
+        if result is not None:
+            return maybe_wrap(result)
 
     processed = 0
     media_downloads = 0
@@ -6268,56 +6923,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         received_at=received_at
                     )
 
-                # Auto-welcome for new contacts (first message or cooldown expired)
-                if WELCOME_ENABLED and waba_meta_id and from_wa:
-                    try:
-                        from handlers.welcome_menu import handle_check_auto_welcome
-                        welcome_result = handle_check_auto_welcome({
-                            "metaWabaId": waba_meta_id,
-                            "from": from_wa,
-                        }, context)
-                        if welcome_result.get("sent"):
-                            logger.info(f"Auto-welcome sent to {from_wa}: {welcome_result}")
-                    except Exception as e:
-                        logger.warning(f"Auto-welcome failed: {e}")
-
-                # Auto-menu on keywords (hi, help, menu, start)
-                if MENU_ON_KEYWORDS_ENABLED and waba_meta_id and from_wa and mtype == "text" and text_body:
-                    try:
-                        from handlers.welcome_menu import handle_check_auto_menu
-                        menu_result = handle_check_auto_menu({
-                            "metaWabaId": waba_meta_id,
-                            "from": from_wa,
-                            "messageText": text_body,
-                        }, context)
-                        if menu_result.get("sent"):
-                            logger.info(f"Auto-menu sent to {from_wa}: {menu_result}")
-                    except Exception as e:
-                        logger.warning(f"Auto-menu failed: {e}")
-
-                # Queue message for Bedrock AI processing
-                if BEDROCK_AUTO_REPLY_ENABLED and waba_meta_id and from_wa and mtype == "text" and text_body:
-                    try:
-                        bedrock_queue_url = os.environ.get("BEDROCK_QUEUE_URL", "")
-                        if bedrock_queue_url:
-                            import boto3
-                            sqs = boto3.client("sqs")
-                            sqs.send_message(
-                                QueueUrl=bedrock_queue_url,
-                                MessageBody=json.dumps({
-                                    "metaWabaId": waba_meta_id,
-                                    "from": from_wa,
-                                    "messageText": text_body,
-                                    "waMessageId": wa_msg_id,
-                                    "phoneArn": phone_arn,
-                                    "senderName": sender_name,
-                                    "receivedAt": received_at,
-                                })
-                            )
-                            logger.info(f"Queued message for Bedrock AI: {from_wa}")
-                    except Exception as e:
-                        logger.warning(f"Failed to queue for Bedrock: {e}")
-
                 # Forward media to another number (optional)
                 if FORWARD_ENABLED and FORWARD_TO_WA_ID and inbound_media_id and phone_arn and s3_key:
                     up = upload_s3_media_to_whatsapp(phone_arn, s3_key)
@@ -6326,6 +6931,63 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         send_media_message(phone_arn, FORWARD_TO_WA_ID, mtype, out_media_id, 
                                                        caption=caption, filename=filename)
                         delete_uploaded_media(phone_arn, out_media_id)
+
+                # =============================================================
+                # WELCOME MESSAGE & MENU AUTO-SEND
+                # =============================================================
+                # Check if we should send welcome message (first contact or cooldown expired)
+                if WELCOME_ENABLED and waba_meta_id and from_wa:
+                    try:
+                        from handlers.welcome_menu import handle_check_auto_welcome
+                        welcome_result = handle_check_auto_welcome({
+                            "metaWabaId": waba_meta_id,
+                            "from": from_wa,
+                        }, context)
+                        if welcome_result.get("sent"):
+                            logger.info(f"Welcome message sent to {from_wa}")
+                            replies_sent += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to send welcome message: {e}")
+
+                # Check if message matches menu keywords (menu, help, start, etc.)
+                if MENU_ON_KEYWORDS_ENABLED and waba_meta_id and from_wa and text_body:
+                    try:
+                        from handlers.welcome_menu import handle_check_auto_menu
+                        menu_result = handle_check_auto_menu({
+                            "metaWabaId": waba_meta_id,
+                            "from": from_wa,
+                            "messageText": text_body,
+                        }, context)
+                        if menu_result.get("sent"):
+                            logger.info(f"Menu sent to {from_wa} (keyword: {text_body})")
+                            replies_sent += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to send menu: {e}")
+
+                # =============================================================
+                # BEDROCK AI AUTO-REPLY
+                # =============================================================
+                # Send message to Bedrock for AI-powered response
+                if BEDROCK_AUTO_REPLY_ENABLED and waba_meta_id and from_wa and text_body:
+                    try:
+                        # Invoke Bedrock worker via SQS (async)
+                        sqs = boto3.client("sqs")
+                        queue_url = os.environ.get("BEDROCK_QUEUE_URL", "")
+                        if queue_url:
+                            sqs.send_message(
+                                QueueUrl=queue_url,
+                                MessageBody=json.dumps({
+                                    "action": "bedrock_reply",
+                                    "metaWabaId": waba_meta_id,
+                                    "from": from_wa,
+                                    "messageText": text_body,
+                                    "messageId": wa_msg_id,
+                                    "senderName": sender_name,
+                                }),
+                            )
+                            logger.info(f"Bedrock request queued for {from_wa}")
+                    except Exception as e:
+                        logger.warning(f"Failed to queue Bedrock request: {e}")
 
             # Process message status updates (delivery receipts)
             statuses = value.get("statuses") or []
@@ -6374,6 +7036,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     for r in records:
         sns_record = (r or {}).get("Sns") or {}
         msg_obj = jload_maybe(sns_record.get("Message", "")) or {}
+        
+        # Ensure msg_obj is a dict before calling .get()
+        if not isinstance(msg_obj, dict):
+            continue
+        
         entry = jload_maybe(msg_obj.get("whatsAppWebhookEntry", "")) or {}
         waba_meta_id = str(entry.get("id", ""))
         
@@ -6398,7 +7065,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if not waba_aws_id:
                 # Try to find WABA AWS ID
                 try:
-                    response = social().list_linked_whatsapp_business_accounts()
+                    response = social.list_linked_whatsapp_business_accounts()
                     for acc in response.get('linkedAccounts', []):
                         if acc.get('wabaId') == waba_meta_id:
                             waba_aws_id = acc.get('id')
@@ -6432,9 +7099,3 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "templatesChecked": len(templates_checked)
         }),
     }
-
-# Deploy timestamp: 20251229135004
-
-# v20251229140021
-
-# deploy-2025122914024773

@@ -1,9 +1,0 @@
-{
-    "Rules": [
-        {
-            "ResourceType": "collection",
-            "Resource": ["collection/base-wecare-wa-kb"]
-        }
-    ],
-    "AWSOwnedKey": true
-}
