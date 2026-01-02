@@ -315,6 +315,25 @@ from handlers.notifications import (
     NOTIFICATION_HANDLERS,
 )
 
+# Razorpay API Handlers
+from handlers.razorpay_api import (
+    handle_razorpay_webhook,
+    handle_create_payment_link_api,
+    create_payment_link,
+    RAZORPAY_HANDLERS,
+)
+
+# Short Links Handlers
+from handlers.shortlinks import (
+    handle_create_short_link_api,
+    handle_get_stats_api,
+    handle_redirect,
+    create_short_link,
+    get_short_link,
+    get_short_link_stats,
+    SHORTLINK_HANDLERS,
+)
+
 # Bedrock Handlers (lazy import to avoid circular deps)
 def _get_bedrock_handlers():
     try:
@@ -567,6 +586,18 @@ EXTENDED_HANDLERS: Dict[str, Any] = {
     # Bedrock AI (lazy loaded)
     # -------------------------------------------------------------------------
     **_get_bedrock_handlers(),
+    
+    # -------------------------------------------------------------------------
+    # Razorpay API (Independent Payment Handler)
+    # -------------------------------------------------------------------------
+    **RAZORPAY_HANDLERS,
+    "razorpay_create_link": handle_create_payment_link_api,
+    
+    # -------------------------------------------------------------------------
+    # Short Links (Independent URL Shortener)
+    # -------------------------------------------------------------------------
+    **SHORTLINK_HANDLERS,
+    "shortlink_create": handle_create_short_link_api,
 }
 
 
