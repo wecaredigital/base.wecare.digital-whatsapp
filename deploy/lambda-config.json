@@ -1,0 +1,78 @@
+{
+  "lambdas": {
+    "shortlinks": {
+      "FunctionName": "wecare-digital-shortlinks",
+      "Description": "Short links handler - r.wecare.digital",
+      "Handler": "handlers.shortlinks.lambda_handler",
+      "Runtime": "python3.11",
+      "Timeout": 30,
+      "MemorySize": 256,
+      "Environment": {
+        "SHORTLINKS_TABLE": "wecare-digital-shortlinks",
+        "SHORT_LINK_BASE_URL": "https://r.wecare.digital"
+      },
+      "Domain": "r.wecare.digital",
+      "Routes": [
+        "GET /",
+        "GET /r/{code}",
+        "POST /r/create",
+        "GET /r/stats/{code}",
+        "OPTIONS /{proxy+}"
+      ]
+    },
+    "payments": {
+      "FunctionName": "wecare-digital-payments",
+      "Description": "Razorpay payments handler - p.wecare.digital",
+      "Handler": "handlers.razorpay_api.lambda_handler",
+      "Runtime": "python3.11",
+      "Timeout": 30,
+      "MemorySize": 256,
+      "Environment": {
+        "PAYMENTS_TABLE": "wecare-digital-payments",
+        "RAZORPAY_KEY_ID": "rzp_live_CLnEhAF46T9eQm",
+        "RAZORPAY_SECRET_ARN": "arn:aws:secretsmanager:ap-south-1:010526260063:secret:wecare-digital/razorpay-6rCxYB",
+        "RAZORPAY_WEBHOOK_SECRET": "b@c4mk9t9Z8qLq3",
+        "RAZORPAY_MERCHANT_ID": "acc_HDfub6wOfQybuH"
+      },
+      "Domain": "p.wecare.digital",
+      "Routes": [
+        "GET /",
+        "GET /p/test",
+        "GET /p/pay/{id}",
+        "GET /p/success",
+        "GET /p/{id}",
+        "POST /razorpay-webhook",
+        "POST /p/create-link",
+        "OPTIONS /{proxy+}"
+      ]
+    },
+    "whatsapp-main": {
+      "FunctionName": "base-wecare-digital-whatsapp",
+      "Description": "Main WhatsApp handler",
+      "Handler": "app.lambda_handler",
+      "Runtime": "python3.11",
+      "Timeout": 60,
+      "MemorySize": 512,
+      "Environment": {
+        "MESSAGES_TABLE_NAME": "base-wecare-digital-whatsapp",
+        "INBOUND_TABLE": "wecare-digital-inbound",
+        "OUTBOUND_TABLE": "wecare-digital-outbound",
+        "FLOWS_TABLE": "wecare-digital-flows",
+        "ORDERS_TABLE": "wecare-digital-orders"
+      }
+    }
+  },
+  "apiGateway": {
+    "id": "z8raub1eth",
+    "region": "ap-south-1",
+    "type": "Edge-optimized",
+    "stage": "prod"
+  },
+  "razorpay": {
+    "merchantId": "acc_HDfub6wOfQybuH",
+    "keyId": "rzp_live_CLnEhAF46T9eQm",
+    "webhookUrl": "https://p.wecare.digital/razorpay-webhook",
+    "webhookSecret": "b@c4mk9t9Z8qLq3",
+    "secretArn": "arn:aws:secretsmanager:ap-south-1:010526260063:secret:wecare-digital/razorpay-6rCxYB"
+  }
+}

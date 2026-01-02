@@ -334,6 +334,22 @@ from handlers.shortlinks import (
     SHORTLINK_HANDLERS,
 )
 
+# Dashboard Handlers
+from handlers.dashboard import (
+    get_inbound_stats,
+    get_inbound_messages,
+    get_outbound_stats,
+    get_outbound_messages,
+    get_template_stats,
+    get_flow_stats,
+    get_payment_stats,
+    get_payments as get_dashboard_payments,
+    get_shortlink_stats,
+    get_shortlinks,
+    get_dashboard_summary,
+    DASHBOARD_HANDLERS,
+)
+
 # Bedrock Handlers (lazy import to avoid circular deps)
 def _get_bedrock_handlers():
     try:
@@ -598,6 +614,11 @@ EXTENDED_HANDLERS: Dict[str, Any] = {
     # -------------------------------------------------------------------------
     **SHORTLINK_HANDLERS,
     "shortlink_create": handle_create_short_link_api,
+    
+    # -------------------------------------------------------------------------
+    # Dashboard Analytics
+    # -------------------------------------------------------------------------
+    **DASHBOARD_HANDLERS,
 }
 
 
@@ -889,6 +910,19 @@ def get_extended_actions_by_category() -> Dict[str, List[str]]:
             "handle_list_reply",
             "check_keyword_trigger",
             "seed_menu_configs",
+        ],
+        "Dashboard Analytics": [
+            "get_inbound_stats",
+            "get_inbound_messages",
+            "get_outbound_stats",
+            "get_outbound_messages",
+            "get_template_stats",
+            "get_flow_stats",
+            "get_payment_stats",
+            "get_payments",
+            "get_shortlink_stats",
+            "get_shortlinks",
+            "get_dashboard_summary",
         ],
     }
 

@@ -1,0 +1,72 @@
+{
+  "tables": {
+    "shortlinks": {
+      "TableName": "wecare-digital-shortlinks",
+      "Description": "Short links storage - r.wecare.digital",
+      "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+      "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+      "BillingMode": "PAY_PER_REQUEST",
+      "Tags": [
+        {"Key": "Project", "Value": "wecare-digital"},
+        {"Key": "Service", "Value": "shortlinks"},
+        {"Key": "Domain", "Value": "r.wecare.digital"}
+      ]
+    },
+    "payments": {
+      "TableName": "wecare-digital-payments",
+      "Description": "Razorpay payments storage - p.wecare.digital",
+      "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+      "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+      "BillingMode": "PAY_PER_REQUEST",
+      "Tags": [
+        {"Key": "Project", "Value": "wecare-digital"},
+        {"Key": "Service", "Value": "payments"},
+        {"Key": "Domain", "Value": "p.wecare.digital"}
+      ]
+    },
+    "flows": {
+      "TableName": "wecare-digital-flows",
+      "Description": "WhatsApp Flows data storage",
+      "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+      "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+      "BillingMode": "PAY_PER_REQUEST",
+      "Tags": [
+        {"Key": "Project", "Value": "wecare-digital"},
+        {"Key": "Service", "Value": "flows"}
+      ]
+    },
+    "inbound": {
+      "TableName": "wecare-digital-inbound",
+      "Description": "Inbound WhatsApp messages",
+      "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+      "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+      "BillingMode": "PAY_PER_REQUEST",
+      "Tags": [
+        {"Key": "Project", "Value": "wecare-digital"},
+        {"Key": "Service", "Value": "inbound-messages"}
+      ]
+    },
+    "outbound": {
+      "TableName": "wecare-digital-outbound",
+      "Description": "Outbound WhatsApp messages",
+      "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+      "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+      "BillingMode": "PAY_PER_REQUEST",
+      "Tags": [
+        {"Key": "Project", "Value": "wecare-digital"},
+        {"Key": "Service", "Value": "outbound-messages"}
+      ]
+    },
+    "orders": {
+      "TableName": "wecare-digital-orders",
+      "Description": "WhatsApp order payments",
+      "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}],
+      "AttributeDefinitions": [{"AttributeName": "pk", "AttributeType": "S"}],
+      "BillingMode": "PAY_PER_REQUEST",
+      "Tags": [
+        {"Key": "Project", "Value": "wecare-digital"},
+        {"Key": "Service", "Value": "orders"}
+      ]
+    }
+  }
+}

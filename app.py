@@ -6524,6 +6524,66 @@ def handle_help(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info("RAW_EVENT=%s", jdump(event))
 
+    # ==========================================================================
+    # HTTP PATH ROUTING - Short Links & Payments (Independent Handlers)
+    # ==========================================================================
+    # Route requests to independent handlers based on path
+    # These handlers work independently and can be attached to any project
+    # ==========================================================================
+    http_method = event.get("httpMethod", event.get("requestContext", {}).get("http", {}).get("method", ""))
+    raw_path = event.get("rawPath", event.get("path", ""))
+    
+    if raw_path:
+        # Short Links: r.wecare.digital routes
+        # /r/{code} - redirect, /r/create - create, /r/stats/{code} - stats
+        if raw_path.startswith("/r/") or raw_path == "/r":
+            from handlers.shortlinks import lambda_handler as shortlinks_handler
+            return shortlinks_handler(event, context)
+        
+        # Payments: p.wecare.digital routes
+        # /p/{id}, /p/pay/{id}, /p/test, /p/success, /p/create-link, /razorpay-webhook
+        if raw_path.startswith("/p/") or raw_path == "/p" or raw_path == "/razorpay-webhook":
+            from handlers.razorpay_api import lambda_handler as payments_handler
+            return payments_handler(event, context)
+        
+        # Root path redirect to selfservice (for both r.wecare.digital and p.wecare.digital)
+        if raw_path == "/" or raw_path == "":
+            # Check host header to determine which domain
+            headers = event.get("headers", {})
+            host = headers.get("host", headers.get("Host", ""))
+            
+            redirect_url = "https://wecare.digital/selfservice"
+            return {
+                "statusCode": 302,
+                "headers": {
+                    "Location": redirect_url,
+                    "Content-Type": "text/html",
+                    "Access-Control-Allow-Origin": "*",
+                },
+                "body": f'<html><head><meta http-equiv="refresh" content="0;url={redirect_url}"></head></html>',
+            }
+        
+        # Check if this is an HTTP request from r.wecare.digital or p.wecare.digital
+        # Unknown paths should redirect to selfservice (404 handling)
+        headers = event.get("headers", {})
+        host = headers.get("host", headers.get("Host", ""))
+        if host and ("r.wecare.digital" in host or "p.wecare.digital" in host):
+            redirect_url = "https://wecare.digital/selfservice"
+            return {
+                "statusCode": 302,
+                "headers": {
+                    "Location": redirect_url,
+                    "Content-Type": "text/html",
+                    "Access-Control-Allow-Origin": "*",
+                },
+                "body": f'''<!DOCTYPE html><html><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Not Found - WECARE.DIGITAL</title>
+<meta http-equiv="refresh" content="3;url={redirect_url}">
+<style>*{{margin:0;padding:0;box-sizing:border-box}}body{{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}}.c{{background:#fff;border-radius:16px;padding:40px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}}.i{{font-size:64px;margin-bottom:20px}}h1{{color:#333;margin-bottom:10px}}p{{color:#666}}.r{{color:#999;font-size:12px;margin-top:20px}}a{{color:#667eea}}</style>
+</head><body><div class="c"><div class="i">🔗</div><h1>Page Not Found</h1><p>The page you're looking for doesn't exist.</p><p class="r">Redirecting to <a href="{redirect_url}">WECARE.DIGITAL</a> in 3 seconds...</p></div></body></html>''',
+            }
+
     # Detect if this is an API Gateway request
     is_api_gateway = "requestContext" in event or "body" in event
     

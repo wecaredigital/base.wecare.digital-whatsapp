@@ -1,55 +1,78 @@
-# Quick deploy script
+# =============================================================================
+# QUICK DEPLOY - Deploy updated Lambda code to AWS
+# =============================================================================
+# Usage: .\deploy\quick-deploy.ps1
+# =============================================================================
+
+$ErrorActionPreference = "Stop"
+
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "WECARE.DIGITAL - Quick Deploy" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+
+# Configuration
 $REGION = "ap-south-1"
-$FUNCTION_NAME = "base-wecare-digital-whatsapp"
+$LAMBDA_MAIN = "base-wecare-digital-whatsapp"
+$ZIP_FILE = "lambda-package.zip"
 
-Write-Host "Creating deployment package..."
+Write-Host "`n[1/4] Creating deployment package..." -ForegroundColor Yellow
 
-# Clean
-Remove-Item deploy_pkg -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item deploy.zip -Force -ErrorAction SilentlyContinue
+# Remove old zip if exists
+if (Test-Path $ZIP_FILE) { Remove-Item $ZIP_FILE -Force }
 
-# Create structure
-New-Item -ItemType Directory -Path deploy_pkg -Force | Out-Null
-New-Item -ItemType Directory -Path deploy_pkg/handlers -Force | Out-Null
+# Create zip with all Python files
+$filesToInclude = @(
+    "app.py",
+    "requirements.txt"
+)
 
-# Copy files
-Copy-Item ../app.py -Destination deploy_pkg/ -Force
-Copy-Item ../handlers/*.py -Destination deploy_pkg/handlers/ -Force
-if (Test-Path ../src) { Copy-Item ../src -Destination deploy_pkg/ -Recurse -Force }
+# Add handlers folder
+$handlersFiles = Get-ChildItem -Path "handlers" -Filter "*.py" -Recurse
+$srcFiles = Get-ChildItem -Path "src" -Filter "*.py" -Recurse -ErrorAction SilentlyContinue
 
 # Create zip
-Push-Location deploy_pkg
-Compress-Archive -Path * -DestinationPath ../deploy.zip -Force
-Pop-Location
+Compress-Archive -Path "app.py" -DestinationPath $ZIP_FILE -Force
+Compress-Archive -Path "handlers" -Update -DestinationPath $ZIP_FILE
+if (Test-Path "src") {
+    Compress-Archive -Path "src" -Update -DestinationPath $ZIP_FILE
+}
 
-Write-Host "Package: $([math]::Round((Get-Item deploy.zip).Length / 1MB, 2)) MB"
+Write-Host "[2/4] Package created: $ZIP_FILE" -ForegroundColor Green
 
-# Deploy
-Write-Host "Deploying to Lambda..."
-aws lambda update-function-code --function-name $FUNCTION_NAME --zip-file "fileb://deploy.zip" --region $REGION --query "LastModified" --output text
-aws lambda wait function-updated --function-name $FUNCTION_NAME --region $REGION
+Write-Host "`n[3/4] Deploying to Lambda: $LAMBDA_MAIN..." -ForegroundColor Yellow
 
-# Publish
-$ver = aws lambda publish-version --function-name $FUNCTION_NAME --region $REGION --query "Version" --output text
-aws lambda update-alias --function-name $FUNCTION_NAME --name live --function-version $ver --region $REGION | Out-Null
+try {
+    aws lambda update-function-code `
+        --function-name $LAMBDA_MAIN `
+        --zip-file "fileb://$ZIP_FILE" `
+        --region $REGION `
+        --output json | Out-Null
+    
+    Write-Host "[3/4] Lambda updated successfully!" -ForegroundColor Green
+} catch {
+    Write-Host "[ERROR] Failed to update Lambda: $_" -ForegroundColor Red
+    exit 1
+}
 
-Write-Host "Deployed version: $ver"
+Write-Host "`n[4/4] Verifying deployment..." -ForegroundColor Yellow
+
+# Wait for update to complete
+Start-Sleep -Seconds 3
+
+$status = aws lambda get-function --function-name $LAMBDA_MAIN --region $REGION --query "Configuration.LastUpdateStatus" --output text
+Write-Host "Lambda Status: $status" -ForegroundColor $(if ($status -eq "Successful") { "Green" } else { "Yellow" })
+
+Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "DEPLOYMENT COMPLETE!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+
+Write-Host "`nTest URLs:" -ForegroundColor White
+Write-Host "  Short Links:  https://r.wecare.digital/" -ForegroundColor Gray
+Write-Host "  Payments:     https://p.wecare.digital/" -ForegroundColor Gray
+Write-Host "  Rs.1 Test:    https://p.wecare.digital/p/test" -ForegroundColor Gray
+
+Write-Host "`nAPI Gateway: z8raub1eth.execute-api.ap-south-1.amazonaws.com/prod" -ForegroundColor Gray
 
 # Cleanup
-Remove-Item deploy_pkg -Recurse -Force
-Remove-Item deploy.zip -Force
-
-# Test
-Write-Host "Testing..."
-$testResult = aws lambda invoke --function-name "${FUNCTION_NAME}:live" --region $REGION --payload '{"action":"get_config"}' --cli-binary-format raw-in-base64-out test_out.json 2>&1
-if (Test-Path test_out.json) {
-    $result = Get-Content test_out.json | ConvertFrom-Json
-    if ($result.config.welcomeEnabled -ne $null) {
-        Write-Host "SUCCESS: welcomeEnabled = $($result.config.welcomeEnabled)"
-    } else {
-        Write-Host "WARNING: welcomeEnabled not found in config"
-    }
-    Remove-Item test_out.json -Force -ErrorAction SilentlyContinue
-} else {
-    Write-Host "WARNING: Test invoke failed"
-}
+if (Test-Path $ZIP_FILE) { Remove-Item $ZIP_FILE -Force }
+Write-Host "`nCleanup complete." -ForegroundColor Gray
