@@ -1,0 +1,26 @@
+{
+    "Changes": [
+        {
+            "Action": "UPSERT",
+            "ResourceRecordSet": {
+                "Name": "selfcare.wecare.digital.",
+                "Type": "CNAME",
+                "TTL": 300,
+                "ResourceRecords": [
+                    {"Value": "d36jjgmx5txv07.cloudfront.net"}
+                ]
+            }
+        },
+        {
+            "Action": "UPSERT",
+            "ResourceRecordSet": {
+                "Name": "dev.wecare.digital.",
+                "Type": "CNAME",
+                "TTL": 300,
+                "ResourceRecords": [
+                    {"Value": "d2moqdneeod858.cloudfront.net"}
+                ]
+            }
+        }
+    ]
+}

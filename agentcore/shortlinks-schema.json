@@ -1,0 +1,96 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Shortlinks API",
+    "version": "1.0.0",
+    "description": "Create and manage short links"
+  },
+  "paths": {
+    "/create": {
+      "post": {
+        "operationId": "createShortLink",
+        "summary": "Create a new short link",
+        "description": "Creates a short URL that redirects to the target URL. Returns a short link like https://r.wecare.digital/abc123",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["targetUrl"],
+                "properties": {
+                  "targetUrl": {
+                    "type": "string",
+                    "description": "The destination URL to redirect to (e.g., 'https://example.com/page')"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Optional title for the link"
+                  },
+                  "customCode": {
+                    "type": "string",
+                    "description": "Optional custom code for the short link (e.g., 'mylink' for r.wecare.digital/mylink)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Short link created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "code": {"type": "string"},
+                    "shortUrl": {"type": "string"},
+                    "target": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/{code}": {
+      "get": {
+        "operationId": "getShortLinkStats",
+        "summary": "Get statistics for a short link",
+        "description": "Returns click count and other statistics for a short link",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "The short link code (e.g., 'abc123' from r.wecare.digital/abc123)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Link statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {"type": "string"},
+                    "shortUrl": {"type": "string"},
+                    "target": {"type": "string"},
+                    "clicks": {"type": "integer"},
+                    "created": {"type": "string"},
+                    "active": {"type": "boolean"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

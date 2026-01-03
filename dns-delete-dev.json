@@ -1,0 +1,15 @@
+{
+    "Changes": [
+        {
+            "Action": "DELETE",
+            "ResourceRecordSet": {
+                "Name": "dev.wecare.digital.",
+                "Type": "CNAME",
+                "TTL": 300,
+                "ResourceRecords": [
+                    {"Value": "d3ezb1ftm1cxv6.cloudfront.net"}
+                ]
+            }
+        }
+    ]
+}

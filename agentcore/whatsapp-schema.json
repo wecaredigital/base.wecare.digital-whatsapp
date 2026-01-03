@@ -1,0 +1,86 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "WhatsApp API",
+    "version": "1.0.0",
+    "description": "Send WhatsApp messages via AWS Social Messaging"
+  },
+  "paths": {
+    "/": {
+      "post": {
+        "operationId": "whatsappAction",
+        "summary": "Execute a WhatsApp action",
+        "description": "Send messages, templates, or perform other WhatsApp actions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["send_text", "send_template", "send_image", "send_document"],
+                    "description": "The action to perform"
+                  },
+                  "to": {
+                    "type": "string",
+                    "description": "Recipient WhatsApp number with country code (e.g., '+919876543210')"
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "Text message content (for send_text action)"
+                  },
+                  "template_name": {
+                    "type": "string",
+                    "description": "Template name (for send_template action)"
+                  },
+                  "template_language": {
+                    "type": "string",
+                    "description": "Template language code (e.g., 'en' or 'en_US')",
+                    "default": "en"
+                  },
+                  "template_params": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Template body parameters as array of strings"
+                  },
+                  "media_url": {
+                    "type": "string",
+                    "description": "URL of media to send (for send_image, send_document)"
+                  },
+                  "caption": {
+                    "type": "string",
+                    "description": "Caption for media messages"
+                  },
+                  "waba_id": {
+                    "type": "string",
+                    "description": "WhatsApp Business Account ID (optional, uses default if not provided)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Action executed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {"type": "integer"},
+                    "messageId": {"type": "string"},
+                    "status": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

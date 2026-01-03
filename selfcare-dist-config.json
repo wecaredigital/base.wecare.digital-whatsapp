@@ -1,0 +1,69 @@
+﻿{
+    "CallerReference": "selfcare-wecare-digital-20260102",
+    "Aliases": {
+        "Quantity": 1,
+        "Items": ["selfcare.wecare.digital"]
+    },
+    "DefaultRootObject": "",
+    "Origins": {
+        "Quantity": 1,
+        "Items": [
+            {
+                "Id": "S3-selfcare.wecare.digital",
+                "DomainName": "selfcare.wecare.digital.s3-website.ap-south-1.amazonaws.com",
+                "OriginPath": "",
+                "CustomHeaders": {"Quantity": 0},
+                "CustomOriginConfig": {
+                    "HTTPPort": 80,
+                    "HTTPSPort": 443,
+                    "OriginProtocolPolicy": "http-only",
+                    "OriginSslProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]},
+                    "OriginReadTimeout": 30,
+                    "OriginKeepaliveTimeout": 5
+                },
+                "ConnectionAttempts": 3,
+                "ConnectionTimeout": 10,
+                "OriginShield": {"Enabled": false}
+            }
+        ]
+    },
+    "OriginGroups": {"Quantity": 0},
+    "DefaultCacheBehavior": {
+        "TargetOriginId": "S3-selfcare.wecare.digital",
+        "TrustedSigners": {"Enabled": false, "Quantity": 0},
+        "TrustedKeyGroups": {"Enabled": false, "Quantity": 0},
+        "ViewerProtocolPolicy": "redirect-to-https",
+        "AllowedMethods": {
+            "Quantity": 2,
+            "Items": ["HEAD", "GET"],
+            "CachedMethods": {"Quantity": 2, "Items": ["HEAD", "GET"]}
+        },
+        "SmoothStreaming": false,
+        "Compress": true,
+        "LambdaFunctionAssociations": {"Quantity": 0},
+        "FunctionAssociations": {
+            "Quantity": 2,
+            "Items": [
+                {"FunctionARN": "arn:aws:cloudfront::010526260063:function/wecare-redirect-to-selfservice", "EventType": "viewer-request"},
+                {"FunctionARN": "arn:aws:cloudfront::010526260063:function/wecare-404-redirect", "EventType": "viewer-response"}
+            ]
+        },
+        "FieldLevelEncryptionId": "",
+        "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    },
+    "CacheBehaviors": {"Quantity": 0},
+    "CustomErrorResponses": {"Quantity": 0},
+    "Comment": "selfcare.wecare.digital",
+    "Logging": {"Enabled": false, "IncludeCookies": false, "Bucket": "", "Prefix": ""},
+    "PriceClass": "PriceClass_All",
+    "Enabled": true,
+    "ViewerCertificate": {
+        "ACMCertificateArn": "arn:aws:acm:us-east-1:010526260063:certificate/7f24ca44-e21f-4ead-af46-d8e3a1af82ef",
+        "SSLSupportMethod": "sni-only",
+        "MinimumProtocolVersion": "TLSv1.2_2021"
+    },
+    "Restrictions": {"GeoRestriction": {"RestrictionType": "none", "Quantity": 0}},
+    "WebACLId": "",
+    "HttpVersion": "http2and3",
+    "IsIPV6Enabled": true
+}

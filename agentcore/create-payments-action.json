@@ -1,0 +1,15 @@
+{
+    "agentId": "UFVSBWGCIU",
+    "agentVersion": "DRAFT",
+    "actionGroupName": "PaymentsAPI",
+    "description": "Create Razorpay payment links for customers",
+    "actionGroupExecutor": {
+        "lambda": "arn:aws:lambda:ap-south-1:010526260063:function:wecare-digital-payments"
+    },
+    "apiSchema": {
+        "s3": {
+            "s3BucketName": "dev.wecare.digital",
+            "s3ObjectKey": "agentcore/payments-schema.json"
+        }
+    }
+}

@@ -1,0 +1,135 @@
+openapi: 3.0.3
+info:
+  title: WECARE Short Links API
+  description: Create and manage short links with click tracking
+  version: 1.0.0
+  contact:
+    name: WECARE Digital
+    url: https://wecare.digital
+
+servers:
+  - url: https://r.wecare.digital
+    description: Production
+
+paths:
+  /create:
+    post:
+      operationId: createShortLink
+      summary: Create a new short link
+      description: Creates a short link that redirects to the target URL. Includes click tracking.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetUrl
+              properties:
+                targetUrl:
+                  type: string
+                  format: uri
+                  description: The destination URL to redirect to
+                  example: "https://example.com/long-url-path"
+                title:
+                  type: string
+                  description: Optional title for the link
+                  example: "My Campaign Link"
+                customCode:
+                  type: string
+                  description: Optional custom short code (if available)
+                  example: "mycode"
+                expiresAt:
+                  type: string
+                  format: date
+                  description: Optional expiration date (ISO format)
+                  example: "2026-12-31"
+      responses:
+        '200':
+          description: Short link created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  code:
+                    type: string
+                    description: The short code
+                  shortUrl:
+                    type: string
+                    format: uri
+                    description: The full short URL
+                    example: "https://r.wecare.digital/abc123def456"
+                  target:
+                    type: string
+                    format: uri
+                    description: The target URL
+        '400':
+          description: Invalid request or code already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /stats/{code}:
+    get:
+      operationId: getShortLinkStats
+      summary: Get short link statistics
+      description: Returns click statistics for a short link
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The short link code
+      responses:
+        '200':
+          description: Link statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  shortUrl:
+                    type: string
+                  target:
+                    type: string
+                  clicks:
+                    type: integer
+                    description: Total click count
+                  created:
+                    type: string
+                    format: date-time
+                  active:
+                    type: boolean
+        '404':
+          description: Link not found
+
+  /{code}:
+    get:
+      operationId: redirectShortLink
+      summary: Redirect to target URL
+      description: Redirects to the target URL and tracks the click
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The short link code
+      responses:
+        '302':
+          description: Redirect to target URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri

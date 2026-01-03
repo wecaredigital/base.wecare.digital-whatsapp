@@ -1,0 +1,57 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Payments API",
+    "version": "1.0.0",
+    "description": "Create and manage Razorpay payment links"
+  },
+  "paths": {
+    "/create": {
+      "post": {
+        "operationId": "createPaymentLink",
+        "summary": "Create a new payment link",
+        "description": "Creates a Razorpay payment link for the specified amount. Returns a URL that customers can use to make payments.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount"],
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "description": "Payment amount in INR (e.g., 100 for Rs. 100)"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the payment (e.g., 'Order Payment', 'Service Fee')"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment link created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "paymentId": {"type": "string"},
+                    "paymentUrl": {"type": "string"},
+                    "amount": {"type": "number"},
+                    "razorpayOrderId": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

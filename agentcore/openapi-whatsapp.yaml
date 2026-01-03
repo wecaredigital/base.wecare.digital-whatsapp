@@ -1,0 +1,136 @@
+openapi: 3.0.3
+info:
+  title: WECARE WhatsApp API
+  description: Send WhatsApp messages, templates, and media via AWS Social Messaging
+  version: 1.0.0
+  contact:
+    name: WECARE Digital
+    url: https://wecare.digital
+
+servers:
+  - url: https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com
+    description: Production HTTP API
+
+paths:
+  /:
+    post:
+      operationId: whatsappAction
+      summary: Execute WhatsApp action
+      description: |
+        Unified endpoint for all WhatsApp operations. Use the 'action' field to specify the operation.
+        
+        Common actions:
+        - send_text: Send a text message
+        - send_template: Send a template message
+        - send_image: Send an image
+        - send_document: Send a document
+        - get_templates: List available templates
+        - help: Get list of all available actions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  description: The action to perform
+                  enum:
+                    - send_text
+                    - send_template
+                    - send_image
+                    - send_document
+                    - send_video
+                    - send_audio
+                    - send_sticker
+                    - send_location
+                    - send_contacts
+                    - send_reaction
+                    - mark_as_read
+                    - get_templates
+                    - upload_media
+                    - help
+                to:
+                  type: string
+                  description: Recipient WhatsApp number (with country code, e.g., +919876543210)
+                text:
+                  type: string
+                  description: Message text (for send_text action)
+                template_name:
+                  type: string
+                  description: Template name (for send_template action)
+                template_language:
+                  type: string
+                  description: Template language code (default "en")
+                  default: "en"
+                components:
+                  type: array
+                  description: Template components with parameters
+                  items:
+                    type: object
+                media_url:
+                  type: string
+                  format: uri
+                  description: Media URL (for send_image, send_document, etc.)
+                caption:
+                  type: string
+                  description: Media caption
+                waba_id:
+                  type: string
+                  description: WhatsApp Business Account ID (optional, uses default if not provided)
+            examples:
+              send_text:
+                summary: Send text message
+                value:
+                  action: send_text
+                  to: "+919876543210"
+                  text: "Hello! This is a test message."
+              send_template:
+                summary: Send template message
+                value:
+                  action: send_template
+                  to: "+919876543210"
+                  template_name: "hello_world"
+                  template_language: "en"
+              get_templates:
+                summary: List templates
+                value:
+                  action: get_templates
+              help:
+                summary: Get help
+                value:
+                  action: help
+      responses:
+        '200':
+          description: Action executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  success:
+                    type: boolean
+                  messageId:
+                    type: string
+                    description: WhatsApp message ID (for send actions)
+                  data:
+                    type: object
+                    description: Response data
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+        '500':
+          description: Server error

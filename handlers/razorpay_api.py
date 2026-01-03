@@ -329,10 +329,66 @@ def is_reserved(path: str) -> bool:
     return path.lower() in RESERVED
 
 # =============================================================================
+# BEDROCK AGENT HANDLER
+# =============================================================================
+def handle_bedrock_agent(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle Bedrock Agent action group invocations."""
+    action = event.get("actionGroup", "")
+    api_path = event.get("apiPath", "")
+    http_method = event.get("httpMethod", "POST")
+    parameters = event.get("parameters", [])
+    request_body = event.get("requestBody", {})
+    
+    logger.info(f"Bedrock Agent: action={action}, path={api_path}, method={http_method}")
+    
+    # Extract parameters into dict
+    params = {}
+    for p in parameters:
+        params[p.get("name")] = p.get("value")
+    
+    # Extract body content
+    body = {}
+    if request_body and request_body.get("content"):
+        content = request_body["content"]
+        if "application/json" in content:
+            props = content["application/json"].get("properties", [])
+            for prop in props:
+                body[prop.get("name")] = prop.get("value")
+    
+    # Merge params and body
+    data = {**params, **body}
+    
+    # Route to appropriate handler
+    if api_path == "/create" or "createPaymentLink" in str(event):
+        result = create_payment(data)
+    else:
+        result = {"error": f"Unknown action: {api_path}"}
+    
+    # Return Bedrock Agent response format
+    return {
+        "messageVersion": "1.0",
+        "response": {
+            "actionGroup": action,
+            "apiPath": api_path,
+            "httpMethod": http_method,
+            "httpStatusCode": 200 if result.get("success") else 400,
+            "responseBody": {
+                "application/json": {
+                    "body": json.dumps(result, default=str)
+                }
+            }
+        }
+    }
+
+# =============================================================================
 # LAMBDA HANDLER
 # =============================================================================
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info(f"Event: {json.dumps(event, default=str)[:500]}")
+    
+    # Check if this is a Bedrock Agent invocation
+    if event.get("actionGroup") or event.get("apiPath"):
+        return handle_bedrock_agent(event)
     
     method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method", "GET")
     path = (event.get("rawPath") or event.get("path") or "/").strip("/")

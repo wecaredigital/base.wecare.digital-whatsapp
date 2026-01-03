@@ -6525,6 +6525,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info("RAW_EVENT=%s", jdump(event))
 
     # ==========================================================================
+    # BEDROCK AGENT ACTION GROUP ROUTING
+    # ==========================================================================
+    # Detect Bedrock Agent invocations by checking for actionGroup in event.
+    # Route to bedrock_actions handler for WhatsAppAPI action group.
+    # ==========================================================================
+    if "actionGroup" in event:
+        from handlers.bedrock_actions import lambda_handler as bedrock_handler
+        return bedrock_handler(event, context)
+
+    # ==========================================================================
     # HTTP PATH ROUTING - Short Links & Payments (Independent Handlers)
     # ==========================================================================
     # Route requests to independent handlers based on path

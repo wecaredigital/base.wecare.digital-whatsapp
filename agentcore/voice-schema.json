@@ -1,0 +1,55 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Voice API",
+    "version": "1.0.0",
+    "description": "Make voice calls with text-to-speech via AWS End User Messaging"
+  },
+  "paths": {
+    "/call": {
+      "post": {
+        "operationId": "makeVoiceCall",
+        "summary": "Make a voice call",
+        "description": "Make a voice call with text-to-speech message to a phone number",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["to", "message"],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "description": "Recipient phone number with country code (e.g., '+919903300044')"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "Voice message content (will be converted to speech using Aditi voice)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Voice call initiated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {"type": "integer"},
+                    "messageId": {"type": "string"},
+                    "status": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

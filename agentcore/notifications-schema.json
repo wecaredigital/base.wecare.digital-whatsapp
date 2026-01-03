@@ -1,0 +1,161 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Notifications API",
+    "version": "1.0.0",
+    "description": "Send SMS, Email, and Voice notifications via AWS End User Messaging and SES"
+  },
+  "paths": {
+    "/sms": {
+      "post": {
+        "operationId": "sendSMS",
+        "summary": "Send SMS message",
+        "description": "Send an SMS text message to a phone number via AWS End User Messaging SMS",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["to", "message"],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "description": "Recipient phone number with country code (e.g., '+919903300044')"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "SMS message content (max 160 chars for single SMS)"
+                  },
+                  "dlt_template_id": {
+                    "type": "string",
+                    "description": "DLT Template ID for India SMS with WDBEEP sender (e.g., '1405170900886606599'). Required to use registered sender ID for India."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SMS sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {"type": "integer"},
+                    "messageId": {"type": "string"},
+                    "status": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/email": {
+      "post": {
+        "operationId": "sendEmail",
+        "summary": "Send Email",
+        "description": "Send an email via AWS SES",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["to", "subject", "body"],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "description": "Recipient email address (e.g., 'manish@wecare.digital')"
+                  },
+                  "subject": {
+                    "type": "string",
+                    "description": "Email subject line"
+                  },
+                  "body": {
+                    "type": "string",
+                    "description": "Email body content (plain text)"
+                  },
+                  "html_body": {
+                    "type": "string",
+                    "description": "Email body content (HTML, optional)"
+                  },
+                  "from_email": {
+                    "type": "string",
+                    "description": "Sender email address (optional, uses default noreply@wecare.digital)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {"type": "integer"},
+                    "messageId": {"type": "string"},
+                    "status": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/voice": {
+      "post": {
+        "operationId": "sendVoice",
+        "summary": "Send Voice Call",
+        "description": "Make a voice call with text-to-speech message via AWS End User Messaging Voice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["to", "message"],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "description": "Recipient phone number with country code (e.g., '+919903300044')"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "Voice message content (will be converted to speech)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Voice call initiated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {"type": "integer"},
+                    "messageId": {"type": "string"},
+                    "status": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

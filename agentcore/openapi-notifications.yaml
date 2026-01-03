@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: WECARE Notifications API
+  description: Send SMS and Email notifications via AWS SNS and SES
+  version: 1.0.0
+
+servers:
+  - url: https://o0wjog0nl4.execute-api.ap-south-1.amazonaws.com
+    description: Production HTTP API
+
+paths:
+  /sms:
+    post:
+      operationId: sendSMS
+      summary: Send SMS message
+      description: Send an SMS text message to a phone number via AWS SNS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - message
+              properties:
+                to:
+                  type: string
+                  description: Recipient phone number with country code (e.g., '+919876543210')
+                message:
+                  type: string
+                  description: SMS message content (max 160 chars for single SMS)
+                sender_id:
+                  type: string
+                  description: Sender ID (optional, e.g., 'WECARE')
+      responses:
+        '200':
+          description: SMS sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  messageId:
+                    type: string
+                  status:
+                    type: string
+
+  /email:
+    post:
+      operationId: sendEmail
+      summary: Send Email
+      description: Send an email via AWS SES
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - subject
+                - body
+              properties:
+                to:
+                  type: string
+                  description: Recipient email address
+                subject:
+                  type: string
+                  description: Email subject line
+                body:
+                  type: string
+                  description: Email body content (plain text)
+                html_body:
+                  type: string
+                  description: Email body content (HTML, optional)
+                from_email:
+                  type: string
+                  description: Sender email address (optional, uses default)
+      responses:
+        '200':
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  messageId:
+                    type: string
+                  status:
+                    type: string
