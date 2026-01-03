@@ -6556,7 +6556,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             from handlers.razorpay_api import lambda_handler as payments_handler
             return payments_handler(event, context)
         
-        # Root path redirect to selfservice (for both r.wecare.digital and p.wecare.digital)
+        # Root path redirect to selfservice (for r.wecare.digital, p.wecare.digital, dm.wecare.digital)
         if raw_path == "/" or raw_path == "":
             # Check host header to determine which domain
             headers = event.get("headers", {})
@@ -6577,7 +6577,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Unknown paths should redirect to selfservice (404 handling)
         headers = event.get("headers", {})
         host = headers.get("host", headers.get("Host", ""))
-        if host and ("r.wecare.digital" in host or "p.wecare.digital" in host):
+        if host and ("r.wecare.digital" in host or "p.wecare.digital" in host or "dm.wecare.digital" in host):
             redirect_url = "https://wecare.digital/selfservice"
             return {
                 "statusCode": 302,

@@ -1,0 +1,1 @@
+{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"_a3502ddcf50e1b7add1fe546a07881dc.dm.wecare.digital.","Type":"CNAME","TTL":300,"ResourceRecords":[{"Value":"_3cbdc3f4164230bf6a56f70cf74c8c26.jkddzztszm.acm-validations.aws."}]}}]}

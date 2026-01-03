@@ -1,0 +1,1 @@
+{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"d.wecare.digital.","Type":"A","AliasTarget":{"HostedZoneId":"Z2FDTNDATAQYW2","DNSName":"de9qaq1vkecrl.cloudfront.net","EvaluateTargetHealth":false}}}]}

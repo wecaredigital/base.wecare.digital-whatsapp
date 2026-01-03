@@ -1,0 +1,1 @@
+{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"dm.wecare.digital","Type":"A","AliasTarget":{"DNSName":"d-ci3wvxfyqf.execute-api.ap-south-1.amazonaws.com","HostedZoneId":"Z3VO1THU9YC4UR","EvaluateTargetHealth":false}}}]}
